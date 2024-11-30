@@ -1,5 +1,5 @@
-# Advent of Code 2023
-My solutions for [Advent of Code 2023](https://adventofcode.com/2023/), written in [Rust](https://www.rust-lang.org/).
+# Advent of Code 2024
+My solutions for [Advent of Code 2024](https://adventofcode.com/2024/), written in [Rust](https://www.rust-lang.org/).
 
 ## Running
 This project uses [cargo-aoc](https://github.com/gobanos/cargo-aoc) by [@gobanos](https://github.com/gobanos/).
