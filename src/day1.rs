@@ -23,8 +23,11 @@ fn part1(input: &Input) -> i32 {
 }
 
 #[aoc(day1, part2)]
-fn part2(input: &Input) -> u32 {
-    todo!()
+fn part2(input: &Input) -> i32 {
+    let (left, right) = input;
+    left.iter().map(|x| {
+        x * right.iter().filter(|&y| y == x).count() as i32
+    }).sum()
 }
 
 #[cfg(test)]
@@ -45,6 +48,6 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), todo!());
+        assert_eq!(part2(&parse(EXAMPLE)), 31);
     }
 }
