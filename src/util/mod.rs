@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 pub use direction::*;
 pub use math::*;
 pub use num::*;
