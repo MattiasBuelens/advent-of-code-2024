@@ -35,8 +35,7 @@ fn is_safe_part2(report: &[i32]) -> bool {
     }
     (0..report.len()).any(|i| {
         // Skip the i-th level
-        let (left, right) = report.split_at(i);
-        let tolerated_report = left.iter().chain(right.iter().skip(1));
+        let tolerated_report = report.iter().take(i).chain(report.iter().skip(i + 1));
         // Check if this is now safe
         is_safe(tolerated_report)
     })
