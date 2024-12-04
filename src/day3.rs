@@ -30,7 +30,9 @@ fn parse(input: &str) -> Vec<Instruction> {
 fn part1(input: &[Instruction]) -> i32 {
     let mut sum = 0;
     for instruction in input {
-        if let Instruction::Mul(left, right) = instruction { sum += left * right };
+        if let Instruction::Mul(left, right) = instruction {
+            sum += left * right
+        };
     }
     sum
 }
