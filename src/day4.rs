@@ -1,4 +1,5 @@
 use aoc_runner_derive::{aoc, aoc_generator};
+use itertools::Itertools;
 
 struct Crossword {
     size: usize,
@@ -88,9 +89,28 @@ fn part1(crossword: &Crossword) -> usize {
         .sum()
 }
 
+impl Crossword {
+    fn is_x_mas_at(&self, x: usize, y: usize) -> bool {
+        x + 2 < self.size
+            && y + 2 < self.size
+            && self.get(x + 1, y + 1) == b'A'
+            && matches!(
+                (self.get(x, y), self.get(x + 2, y + 2)),
+                (b'M', b'S') | (b'S', b'M')
+            )
+            && matches!(
+                (self.get(x + 2, y), self.get(x, y + 2)),
+                (b'M', b'S') | (b'S', b'M')
+            )
+    }
+}
+
 #[aoc(day4, part2)]
 fn part2(crossword: &Crossword) -> usize {
-    todo!()
+    (0..crossword.size)
+        .cartesian_product(0..crossword.size)
+        .filter(move |&(x, y)| crossword.is_x_mas_at(x, y))
+        .count()
 }
 
 #[cfg(test)]
@@ -115,6 +135,6 @@ MXMXAXMASX";
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        assert_eq!(part2(&parse(EXAMPLE)), 9);
     }
 }
