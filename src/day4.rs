@@ -1,21 +1,16 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 
 struct Crossword {
-    width: usize,
-    height: usize,
+    size: usize,
     lines: Vec<String>,
 }
 
 #[aoc_generator(day4)]
 fn parse(input: &str) -> Crossword {
     let lines: Vec<String> = input.lines().map(|line| line.to_string()).collect();
-    let height = lines.len();
-    let width = lines[0].len();
-    Crossword {
-        width,
-        height,
-        lines,
-    }
+    let size = lines.len();
+    assert_eq!(lines[0].len(), size);
+    Crossword { size, lines }
 }
 
 impl Crossword {
@@ -24,25 +19,53 @@ impl Crossword {
     }
 
     fn horizontals(&self) -> Vec<Vec<u8>> {
-        (0..self.height)
-            .map(|y| (0..self.width).map(|x| self.get(x, y)).collect())
+        (0..self.size)
+            .map(|y| (0..self.size).map(|x| self.get(x, y)).collect())
             .collect()
     }
 
     fn verticals(&self) -> Vec<Vec<u8>> {
-        (0..self.width)
-            .map(|x| (0..self.height).map(|y| self.get(x, y)).collect())
+        (0..self.size)
+            .map(|x| (0..self.size).map(|y| self.get(x, y)).collect())
             .collect()
     }
 
     fn main_diagonals(&self) -> Vec<Vec<u8>> {
-        // TODO
-        Vec::new()
+        let mut result = Vec::new();
+        for offset in 0..self.size {
+            result.push(self.get_diagonal(offset, 0, 1, 1));
+            if offset != 0 {
+                result.push(self.get_diagonal(0, offset, 1, 1));
+            }
+        }
+        result
     }
 
     fn anti_diagonals(&self) -> Vec<Vec<u8>> {
-        // TODO
-        Vec::new()
+        let mut result = Vec::new();
+        for offset in 0..self.size {
+            result.push(self.get_diagonal(offset, 0, -1, 1));
+            if offset != 0 {
+                result.push(self.get_diagonal(self.size - 1, offset, -1, 1));
+            }
+        }
+        result
+    }
+
+    fn get_diagonal(&self, mut x: usize, mut y: usize, step_x: isize, step_y: isize) -> Vec<u8> {
+        let mut result = Vec::new();
+        while x < self.size && y < self.size {
+            result.push(self.get(x, y));
+            x = match x.checked_add_signed(step_x) {
+                Some(x) => x,
+                None => break,
+            };
+            y = match y.checked_add_signed(step_y) {
+                Some(y) => y,
+                None => break,
+            };
+        }
+        result
     }
 }
 
