@@ -1,4 +1,5 @@
 use super::Vector2D;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Direction {
@@ -24,6 +25,15 @@ impl Direction {
             Direction::S => Direction::N,
             Direction::W => Direction::E,
             Direction::E => Direction::W,
+        }
+    }
+
+    pub fn rotate_right(self) -> Direction {
+        match self {
+            Direction::N => Direction::E,
+            Direction::E => Direction::S,
+            Direction::W => Direction::N,
+            Direction::S => Direction::W,
         }
     }
 
