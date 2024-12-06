@@ -1,5 +1,7 @@
 use aoc_runner_derive::{aoc, aoc_generator};
+use std::collections::VecDeque;
 
+#[derive(Debug, Clone)]
 struct Rule {
     before: u32,
     after: u32,
@@ -51,9 +53,33 @@ fn part1((rules, updates): &Input) -> u32 {
         .sum()
 }
 
+fn fix_update(update: &Update, rules: &[Rule]) -> Update {
+    debug_assert!(!is_update_valid(update, rules));
+    let mut queue = VecDeque::from(update.to_vec());
+    let mut update = Vec::new();
+    while let Some(page) = queue.pop_front() {
+        let mut index = update.len();
+        // Add new page to the end
+        update.insert(index, page);
+        while !is_update_valid(&update, rules) {
+            assert!(index > 0);
+            // Move new page to the front
+            update.swap(index - 1, index);
+            index -= 1;
+        }
+    }
+    debug_assert!(is_update_valid(&update, rules));
+    update
+}
+
 #[aoc(day5, part2)]
 fn part2((rules, updates): &Input) -> u32 {
-    todo!()
+    updates
+        .iter()
+        .filter(|update| !is_update_valid(update, rules))
+        .map(|update| fix_update(update, rules))
+        .map(|update| update[update.len() / 2])
+        .sum()
 }
 
 #[cfg(test)]
@@ -69,6 +95,6 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        assert_eq!(part2(&parse(EXAMPLE)), 123);
     }
 }
