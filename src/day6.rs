@@ -57,9 +57,47 @@ fn part1((map, guard): &Input) -> usize {
     visited.len()
 }
 
+fn is_loop(map: &Map, mut guard: Vector2D) -> bool {
+    let (width, height) = (map.width, map.height);
+    let mut dir = Direction::N;
+    let mut visited = HashSet::new();
+    while (0..width).contains(&guard.x()) && (0..height).contains(&guard.y()) {
+        let state = (guard, dir);
+        if visited.contains(&state) {
+            return true;
+        }
+        visited.insert(state);
+        let next_guard = guard + dir.step();
+        if map.obstacles.contains(&next_guard) {
+            dir = dir.rotate_right();
+        } else {
+            guard = next_guard;
+        }
+    }
+    false
+}
+
 #[aoc(day6, part2)]
 fn part2((map, guard): &Input) -> usize {
-    todo!()
+    let (width, height) = (map.width, map.height);
+    let mut loops = 0usize;
+    for x in 0..width {
+        for y in 0..height {
+            let pos = Vector2D::new(x, y);
+            if &pos == guard {
+                continue;
+            }
+            if map.obstacles.contains(&pos) {
+                continue;
+            }
+            let mut map = map.clone();
+            map.obstacles.insert(pos);
+            if is_loop(&map, *guard) {
+                loops += 1;
+            }
+        }
+    }
+    loops
 }
 
 #[cfg(test)]
@@ -75,6 +113,6 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        assert_eq!(part2(&parse(EXAMPLE)), 6);
     }
 }
