@@ -39,10 +39,8 @@ fn parse(input: &str) -> Input {
     (map, guard.expect("no guard found"))
 }
 
-#[aoc(day6, part1)]
-fn part1((map, guard): &Input) -> usize {
+fn guard_path(map: &Map, mut guard: Vector2D) -> HashSet<Vector2D> {
     let (width, height) = (map.width, map.height);
-    let mut guard = *guard;
     let mut dir = Direction::N;
     let mut visited = HashSet::new();
     while (0..width).contains(&guard.x()) && (0..height).contains(&guard.y()) {
@@ -54,7 +52,12 @@ fn part1((map, guard): &Input) -> usize {
             guard = next_guard;
         }
     }
-    visited.len()
+    visited
+}
+
+#[aoc(day6, part1)]
+fn part1((map, guard): &Input) -> usize {
+    guard_path(map, *guard).len()
 }
 
 fn is_loop(map: &Map, mut guard: Vector2D) -> bool {
@@ -80,6 +83,7 @@ fn is_loop(map: &Map, mut guard: Vector2D) -> bool {
 #[aoc(day6, part2)]
 fn part2((map, guard): &Input) -> usize {
     let (width, height) = (map.width, map.height);
+    let path = guard_path(map, *guard);
     let mut loops = 0usize;
     for x in 0..width {
         for y in 0..height {
@@ -88,6 +92,16 @@ fn part2((map, guard): &Input) -> usize {
                 continue;
             }
             if map.obstacles.contains(&pos) {
+                // New obstacle cannot be at existing obstacle
+                continue;
+            }
+            if !path.contains(&pos)
+                && !Direction::all()
+                    .iter()
+                    .any(|dir| path.contains(&(pos + dir.step())))
+            {
+                // New obstacle must be on or near the original path,
+                // otherwise the guard would never see it
                 continue;
             }
             let mut map = map.clone();
