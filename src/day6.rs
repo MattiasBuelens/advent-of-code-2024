@@ -39,12 +39,16 @@ fn parse(input: &str) -> Input {
     (map, guard.expect("no guard found"))
 }
 
-fn guard_path(map: &Map, mut guard: Vector2D) -> HashSet<Vector2D> {
+fn guard_path(map: &Map, mut guard: Vector2D) -> Option<HashSet<(Vector2D, Direction)>> {
     let (width, height) = (map.width, map.height);
     let mut dir = Direction::N;
-    let mut visited = HashSet::new();
+    let mut path = HashSet::new();
     while (0..width).contains(&guard.x()) && (0..height).contains(&guard.y()) {
-        visited.insert(guard);
+        let state = (guard, dir);
+        if path.contains(&state) {
+            return None;
+        }
+        path.insert(state);
         let next_guard = guard + dir.step();
         if map.obstacles.contains(&next_guard) {
             dir = dir.rotate_right();
@@ -52,63 +56,42 @@ fn guard_path(map: &Map, mut guard: Vector2D) -> HashSet<Vector2D> {
             guard = next_guard;
         }
     }
-    visited
+    Some(path)
 }
 
 #[aoc(day6, part1)]
 fn part1((map, guard): &Input) -> usize {
-    guard_path(map, *guard).len()
-}
-
-fn is_loop(map: &Map, mut guard: Vector2D) -> bool {
-    let (width, height) = (map.width, map.height);
-    let mut dir = Direction::N;
-    let mut visited = HashSet::new();
-    while (0..width).contains(&guard.x()) && (0..height).contains(&guard.y()) {
-        let state = (guard, dir);
-        if visited.contains(&state) {
-            return true;
-        }
-        visited.insert(state);
-        let next_guard = guard + dir.step();
-        if map.obstacles.contains(&next_guard) {
-            dir = dir.rotate_right();
-        } else {
-            guard = next_guard;
-        }
-    }
-    false
+    let path = guard_path(map, *guard).unwrap();
+    let visited = path.into_iter().map(|(pos, _)| pos).collect::<HashSet<_>>();
+    visited.len()
 }
 
 #[aoc(day6, part2)]
 fn part2((map, guard): &Input) -> usize {
     let (width, height) = (map.width, map.height);
-    let path = guard_path(map, *guard);
+    let path = guard_path(map, *guard).unwrap();
     let mut loops = 0usize;
-    for x in 0..width {
-        for y in 0..height {
-            let pos = Vector2D::new(x, y);
-            if &pos == guard {
-                continue;
-            }
-            if map.obstacles.contains(&pos) {
-                // New obstacle cannot be at existing obstacle
-                continue;
-            }
-            if !path.contains(&pos)
-                && !Direction::all()
-                    .iter()
-                    .any(|dir| path.contains(&(pos + dir.step())))
-            {
-                // New obstacle must be on or near the original path,
-                // otherwise the guard would never see it
-                continue;
-            }
-            let mut map = map.clone();
-            map.obstacles.insert(pos);
-            if is_loop(&map, *guard) {
-                loops += 1;
-            }
+    let mut seen = HashSet::new();
+    // New obstacle must be "seen" along the original path
+    for (pos, dir) in path {
+        let pos = pos + dir.step();
+        if seen.contains(&pos) {
+            // Already tested
+            continue;
+        }
+        seen.insert(pos);
+        if &pos == guard {
+            // New obstacle cannot be at guard's initial position
+            continue;
+        }
+        if map.obstacles.contains(&pos) {
+            // New obstacle cannot be at existing obstacle
+            continue;
+        }
+        let mut map = map.clone();
+        map.obstacles.insert(pos);
+        if guard_path(&map, *guard).is_none() {
+            loops += 1;
         }
     }
     loops
