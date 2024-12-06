@@ -68,7 +68,6 @@ fn part1((map, guard): &Input) -> usize {
 
 #[aoc(day6, part2)]
 fn part2((map, guard): &Input) -> usize {
-    let (width, height) = (map.width, map.height);
     let path = guard_path(map, *guard).unwrap();
     let mut loops = 0usize;
     let mut seen = HashSet::new();
