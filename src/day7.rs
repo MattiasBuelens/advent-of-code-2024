@@ -19,8 +19,8 @@ fn parse(input: &str) -> Vec<Equation> {
         .collect()
 }
 
-fn solve(equation: &Equation) -> bool {
-    fn inner(result: i64, current: i64, values: &[i64]) -> bool {
+fn solve(equation: &Equation, part2: bool) -> bool {
+    fn inner(result: i64, current: i64, values: &[i64], part2: bool) -> bool {
         if current > result {
             // Temporary result cannot exceed final result,
             // since there's no subtract or divide operators.
@@ -30,25 +30,36 @@ fn solve(equation: &Equation) -> bool {
             // All values used, do we have the right result now?
             return current == result;
         };
-        // Try
-        inner(result, current + next, values) || inner(result, current * next, values)
+        // Try all operators
+        inner(result, current + next, values, part2)
+            || inner(result, current * next, values, part2)
+            || (part2 && inner(result, concatenate(current, *next), values, part2))
     }
 
-    inner(equation.test_value, 0, &equation.values)
+    inner(equation.test_value, 0, &equation.values, part2)
 }
 
 #[aoc(day7, part1)]
 fn part1(input: &[Equation]) -> i64 {
     input
         .iter()
-        .filter(|equation| solve(equation))
+        .filter(|equation| solve(equation, false))
         .map(|equation| equation.test_value)
         .sum()
 }
 
+fn concatenate(left: i64, right: i64) -> i64 {
+    let right_digits = right.ilog10() + 1;
+    (left * 10_i64.pow(right_digits)) + right
+}
+
 #[aoc(day7, part2)]
 fn part2(input: &[Equation]) -> i64 {
-    todo!()
+    input
+        .iter()
+        .filter(|equation| solve(equation, true))
+        .map(|equation| equation.test_value)
+        .sum()
 }
 
 #[cfg(test)]
@@ -64,6 +75,6 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        assert_eq!(part2(&parse(EXAMPLE)), 11387);
     }
 }
