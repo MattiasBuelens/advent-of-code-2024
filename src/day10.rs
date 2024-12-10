@@ -4,26 +4,18 @@ use pathfinding::prelude::{count_paths, dfs_reach};
 use std::collections::HashMap;
 
 struct HeightMap {
-    width: i32,
-    height: i32,
     heights: HashMap<Vector2D, u32>,
 }
 
 #[aoc_generator(day10)]
 fn parse(input: &str) -> HeightMap {
-    let height = input.lines().count() as i32;
-    let width = input.lines().next().unwrap().len() as i32;
     let mut heights = HashMap::new();
     for (y, line) in input.lines().enumerate() {
         for (x, c) in line.chars().enumerate() {
             heights.insert(Vector2D::new(x as i32, y as i32), c.to_digit(10).unwrap());
         }
     }
-    HeightMap {
-        width,
-        height,
-        heights,
-    }
+    HeightMap { heights }
 }
 
 impl HeightMap {
