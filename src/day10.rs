@@ -1,6 +1,6 @@
 use crate::util::Vector2D;
 use aoc_runner_derive::{aoc, aoc_generator};
-use pathfinding::prelude::dfs_reach;
+use pathfinding::prelude::{count_paths, dfs_reach};
 use std::collections::HashMap;
 
 struct HeightMap {
@@ -36,17 +36,25 @@ impl HeightMap {
     fn trailhead_score(&self, start: Vector2D) -> usize {
         let start_height = *self.heights.get(&start).unwrap();
         dfs_reach((start, start_height), |&(pos, height)| {
-            pos.neighbours().filter_map(move |neighbour| {
-                let neighbour_height = *self.heights.get(&neighbour)?;
-                if neighbour_height == height + 1 {
-                    Some((neighbour, neighbour_height))
-                } else {
-                    None
-                }
-            })
+            self.neighbours(pos, height)
         })
         .filter(|&(_, height)| height == 9)
         .count()
+    }
+
+    fn neighbours(
+        &self,
+        pos: Vector2D,
+        height: u32,
+    ) -> impl Iterator<Item = (Vector2D, u32)> + use<'_> {
+        pos.neighbours().filter_map(move |neighbour| {
+            let neighbour_height = *self.heights.get(&neighbour)?;
+            if neighbour_height == height + 1 {
+                Some((neighbour, neighbour_height))
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -58,9 +66,23 @@ fn part1(input: &HeightMap) -> usize {
         .sum()
 }
 
+impl HeightMap {
+    fn trailhead_rating(&self, start: Vector2D) -> usize {
+        let start_height = *self.heights.get(&start).unwrap();
+        count_paths(
+            (start, start_height),
+            |&(pos, height)| self.neighbours(pos, height),
+            |&(_, height)| height == 9,
+        )
+    }
+}
+
 #[aoc(day10, part2)]
 fn part2(input: &HeightMap) -> usize {
-    todo!()
+    input
+        .trailheads()
+        .map(|trailhead| input.trailhead_rating(trailhead))
+        .sum()
 }
 
 #[cfg(test)]
@@ -76,6 +98,6 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        assert_eq!(part2(&parse(EXAMPLE)), 81);
     }
 }
