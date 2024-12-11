@@ -18,6 +18,7 @@ fn blink_single(stone: u64) -> Either<u64, (u64, u64)> {
     }
 }
 
+#[allow(unused)]
 fn blink(stones: &mut Vec<u64>) {
     let mut i = 0;
     while i < stones.len() {
@@ -39,17 +40,9 @@ fn count_digits(x: u64) -> u32 {
     x.ilog10() + 1
 }
 
-fn blink_times(stones: &Vec<u64>, times: u32) -> Vec<u64> {
-    let mut stones = stones.clone();
-    for _ in 1..=times {
-        blink(&mut stones);
-    }
-    stones
-}
-
 #[aoc(day11, part1)]
 fn part1(stones: &Vec<u64>) -> usize {
-    blink_times(stones, 25).len()
+    blink_counts_times(stones, 25)
 }
 
 type StoneCounts = IntMap<u64, usize>;
@@ -64,6 +57,7 @@ fn to_counts(stones: &Vec<u64>) -> StoneCounts {
 
 fn blink_counts(stones: StoneCounts) -> StoneCounts {
     let mut new_counts = StoneCounts::default();
+    new_counts.reserve(stones.len());
     for (stone, count) in stones {
         match blink_single(stone) {
             Either::Left(stone) => {
