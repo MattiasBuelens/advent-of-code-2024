@@ -9,6 +9,7 @@ pub enum Direction {
     E,
 }
 
+#[allow(unused)]
 impl Direction {
     pub fn step(self) -> Vector2D {
         match self {
