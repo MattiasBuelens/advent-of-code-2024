@@ -1,8 +1,8 @@
 use crate::util::{Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::prelude::dfs_reach;
-use std::cell::RefCell;
-use std::collections::HashMap;
+use std::cell::{Ref, RefCell};
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -27,6 +27,7 @@ impl Garden {
 
 #[derive(Debug, Default)]
 struct Plot {
+    plants: HashSet<Vector2D>,
     area: usize,
     perimeter: usize,
 }
@@ -34,7 +35,6 @@ struct Plot {
 #[derive(Debug, Default)]
 struct Plots {
     plots: Vec<Rc<RefCell<Plot>>>,
-    plots_by_pos: HashMap<Vector2D, Rc<RefCell<Plot>>>,
 }
 
 impl Garden {
@@ -69,37 +69,33 @@ impl Garden {
             })
             .for_each(|pos| {
                 plots_by_pos.insert(pos, plot.clone());
-                plot.borrow_mut().area += 1;
+                let mut plot = plot.borrow_mut();
+                plot.area += 1;
+                plot.plants.insert(pos);
             });
         }
         // Compute perimeters
-        for (&pos, plot) in &plots_by_pos {
-            for dir in Direction::all() {
-                let neighbour_pos = pos + dir.step();
-                match plots_by_pos.get(&neighbour_pos) {
-                    Some(neighbour) if Rc::ptr_eq(plot, neighbour) => {
+        for plot in &plots {
+            let mut perimeter = 0usize;
+            for &pos in plot.borrow().plants.iter() {
+                for dir in Direction::all() {
+                    if plot.borrow().plants.contains(&(pos + dir.step())) {
                         // Same plot, no edge between them
-                    }
-                    _ => {
+                    } else {
                         // Other plot, or outside of garden
-                        plot.borrow_mut().perimeter += 1;
+                        perimeter += 1;
                     }
                 }
             }
+            plot.borrow_mut().perimeter = perimeter;
         }
-        Plots {
-            plots,
-            plots_by_pos,
-        }
+        Plots { plots }
     }
 }
 
 impl Plots {
-    fn values(mut self) -> impl Iterator<Item = Plot> {
-        self.plots_by_pos.clear();
-        self.plots
-            .into_iter()
-            .map(|plot| Rc::into_inner(plot).unwrap().into_inner())
+    fn values(&self) -> impl Iterator<Item = Ref<Plot>> {
+        self.plots.iter().map(|plot| plot.borrow())
     }
 }
 
