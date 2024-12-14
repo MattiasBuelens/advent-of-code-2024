@@ -1,9 +1,8 @@
 use crate::util::{Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::prelude::dfs_reach;
-use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 #[derive(Debug)]
 struct Garden {
@@ -30,11 +29,6 @@ struct Plot {
     plants: HashSet<Vector2D>,
 }
 
-#[derive(Debug, Default)]
-struct Plots {
-    plots: Vec<Rc<RefCell<Plot>>>,
-}
-
 impl Garden {
     fn plants(&self) -> impl Iterator<Item = (Vector2D, char)> + use<'_> {
         self.plants.iter().enumerate().flat_map(move |(y, line)| {
@@ -44,18 +38,15 @@ impl Garden {
         })
     }
 
-    fn plots(&self) -> Plots {
+    fn plots(&self) -> Vec<Plot> {
         let mut plots = Vec::new();
-        let mut plots_by_pos = HashMap::<Vector2D, Rc<RefCell<Plot>>>::new();
+        let mut plots_by_pos = HashMap::<Vector2D, Weak<Plot>>::new();
         // Group plants into plots
         for (start_pos, plant) in self.plants() {
             if plots_by_pos.contains_key(&start_pos) {
                 continue;
             }
-            let plot = Rc::new(RefCell::new(Plot::default()));
-            plots.push(plot.clone());
-            plots_by_pos.insert(start_pos, plot.clone());
-            dfs_reach(start_pos, |&curr| {
+            let plants = dfs_reach(start_pos, |&curr| {
                 Direction::all().into_iter().filter_map(move |dir| {
                     let neighbour_pos = curr + dir.step();
                     if self.get(neighbour_pos)? == plant {
@@ -65,13 +56,17 @@ impl Garden {
                     }
                 })
             })
-            .for_each(|pos| {
-                plots_by_pos.insert(pos, plot.clone());
-                let mut plot = plot.borrow_mut();
-                plot.plants.insert(pos);
-            });
+            .collect::<HashSet<_>>();
+            let plot = Rc::new(Plot { plants });
+            for &pos in &plot.plants {
+                plots_by_pos.insert(pos, Rc::downgrade(&plot));
+            }
+            plots.push(plot);
         }
-        Plots { plots }
+        plots
+            .into_iter()
+            .map(|plot| Rc::into_inner(plot).unwrap())
+            .collect()
     }
 }
 
@@ -96,17 +91,11 @@ impl Plot {
     }
 }
 
-impl Plots {
-    fn values(&self) -> impl Iterator<Item = Ref<Plot>> {
-        self.plots.iter().map(|plot| plot.borrow())
-    }
-}
-
 #[aoc(day12, part1)]
 fn part1(garden: &Garden) -> usize {
     garden
         .plots()
-        .values()
+        .into_iter()
         .map(|plot| plot.area() * plot.perimeter())
         .sum()
 }
