@@ -28,8 +28,6 @@ impl Garden {
 #[derive(Debug, Default)]
 struct Plot {
     plants: HashSet<Vector2D>,
-    area: usize,
-    perimeter: usize,
 }
 
 #[derive(Debug, Default)]
@@ -70,26 +68,31 @@ impl Garden {
             .for_each(|pos| {
                 plots_by_pos.insert(pos, plot.clone());
                 let mut plot = plot.borrow_mut();
-                plot.area += 1;
                 plot.plants.insert(pos);
             });
         }
-        // Compute perimeters
-        for plot in &plots {
-            let mut perimeter = 0usize;
-            for &pos in plot.borrow().plants.iter() {
-                for dir in Direction::all() {
-                    if plot.borrow().plants.contains(&(pos + dir.step())) {
-                        // Same plot, no edge between them
-                    } else {
-                        // Other plot, or outside of garden
-                        perimeter += 1;
-                    }
+        Plots { plots }
+    }
+}
+
+impl Plot {
+    fn area(&self) -> usize {
+        self.plants.len()
+    }
+
+    fn perimeter(&self) -> usize {
+        let mut perimeter = 0usize;
+        for &pos in self.plants.iter() {
+            for dir in Direction::all() {
+                if self.plants.contains(&(pos + dir.step())) {
+                    // Same plot, no edge between them
+                } else {
+                    // Other plot, or outside of garden
+                    perimeter += 1;
                 }
             }
-            plot.borrow_mut().perimeter = perimeter;
         }
-        Plots { plots }
+        perimeter
     }
 }
 
@@ -104,7 +107,7 @@ fn part1(garden: &Garden) -> usize {
     garden
         .plots()
         .values()
-        .map(|plot| plot.area * plot.perimeter)
+        .map(|plot| plot.area() * plot.perimeter())
         .sum()
 }
 
