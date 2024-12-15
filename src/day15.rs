@@ -137,7 +137,7 @@ impl Map {
     fn widen(&self) -> Self {
         let walls = self.walls.iter().flat_map(stretch_pos).collect();
         let boxes = self.boxes.iter().map(double_pos).collect();
-        let robot = Vector2D::new(self.robot.x() * 2, self.robot.y());
+        let robot = double_pos(&self.robot);
         Map {
             walls,
             boxes,
@@ -182,8 +182,7 @@ impl Map {
             Direction::N | Direction::S => {
                 // Must push both sides of the box up or down.
                 boxes = self.try_step_part2(left_box_pos, dir)?;
-                let boxes_right = self.try_step_part2(right_box_pos, dir)?;
-                boxes.extend(boxes_right);
+                boxes.extend(self.try_step_part2(right_box_pos, dir)?);
             }
             Direction::W => {
                 // Must push from the left of this box.
