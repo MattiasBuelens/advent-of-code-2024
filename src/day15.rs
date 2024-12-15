@@ -92,7 +92,7 @@ impl Map {
         }
     }
 
-    fn try_step(&mut self, pos: Vector2D, dir: Direction) -> Option<Vec<Vector2D>> {
+    fn try_step(&self, pos: Vector2D, dir: Direction) -> Option<Vec<Vector2D>> {
         let next_pos = pos + dir.step();
         if self.walls.contains(&next_pos) {
             // Cannot move.
@@ -122,9 +122,95 @@ fn part1((map, moves): &Input) -> i32 {
     map.boxes.iter().map(|pos| pos.x() + 100 * pos.y()).sum()
 }
 
+fn double_pos(pos: &Vector2D) -> Vector2D {
+    Vector2D::new(pos.x() * 2, pos.y())
+}
+
+fn stretch_pos(pos: &Vector2D) -> [Vector2D; 2] {
+    [
+        Vector2D::new(pos.x() * 2, pos.y()),
+        Vector2D::new(pos.x() * 2 + 1, pos.y()),
+    ]
+}
+
+impl Map {
+    fn widen(&self) -> Self {
+        let walls = self.walls.iter().flat_map(stretch_pos).collect();
+        let boxes = self.boxes.iter().map(double_pos).collect();
+        let robot = Vector2D::new(self.robot.x() * 2, self.robot.y());
+        Map {
+            walls,
+            boxes,
+            robot,
+        }
+    }
+
+    fn step_part2(&mut self, dir: Direction) {
+        if let Some(boxes_to_move) = self.try_step_part2(self.robot, dir) {
+            // Can move to new position by pushing the found boxes.
+            self.boxes.retain(|pos| !boxes_to_move.contains(pos));
+            self.boxes
+                .extend(boxes_to_move.into_iter().map(|pos| pos + dir.step()));
+            self.robot += dir.step();
+        } else {
+            // Cannot move.
+        }
+    }
+
+    fn try_step_part2(&self, pos: Vector2D, dir: Direction) -> Option<Vec<Vector2D>> {
+        let next_pos = pos + dir.step();
+        if self.walls.contains(&next_pos) {
+            // Cannot move.
+            None
+        } else if self.boxes.contains(&next_pos) {
+            // Can move only if we can push the left side of this box.
+            self.try_push_box_part2(next_pos, dir)
+        } else if self.boxes.contains(&(next_pos - Vector2D::new(1, 0))) {
+            // Can move only if we can push the right side of this box.
+            self.try_push_box_part2(next_pos - Vector2D::new(1, 0), dir)
+        } else {
+            // Can move to an empty space.
+            Some(Vec::new())
+        }
+    }
+
+    fn try_push_box_part2(&self, left_box_pos: Vector2D, dir: Direction) -> Option<Vec<Vector2D>> {
+        // Can move only if we can push this box, along with any other boxes on the path.
+        let right_box_pos = left_box_pos + Vector2D::new(1, 0);
+        let mut boxes: Vec<Vector2D>;
+        match dir {
+            Direction::N | Direction::S => {
+                // Must push both sides of the box up or down.
+                boxes = self.try_step_part2(left_box_pos, dir)?;
+                let boxes_right = self.try_step_part2(right_box_pos, dir)?;
+                boxes.extend(boxes_right);
+            }
+            Direction::W => {
+                // Must push from the left of this box.
+                boxes = self.try_step_part2(left_box_pos, dir)?;
+            }
+            Direction::E => {
+                // Must push from the right of this box.
+                boxes = self.try_step_part2(right_box_pos, dir)?;
+            }
+        }
+        // Always use the left side of the box as its identifier.
+        boxes.push(left_box_pos);
+        Some(boxes)
+    }
+}
+
 #[aoc(day15, part2)]
 fn part2((map, moves): &Input) -> i32 {
-    todo!()
+    let mut map = map.widen();
+    // println!("Initial state:");
+    // println!("{map}");
+    for &dir in moves {
+        map.step_part2(dir);
+        // println!("Move {dir:?}:");
+        // println!("{map}");
+    }
+    map.boxes.iter().map(|pos| pos.x() + 100 * pos.y()).sum()
 }
 
 #[cfg(test)]
@@ -146,6 +232,6 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE_LARGE)), 0);
+        assert_eq!(part2(&parse(EXAMPLE_LARGE)), 9021);
     }
 }
