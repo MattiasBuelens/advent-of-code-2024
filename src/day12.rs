@@ -100,9 +100,53 @@ fn part1(garden: &Garden) -> usize {
         .sum()
 }
 
+impl Plot {
+    fn sides(&self) -> usize {
+        let mut sides = 0usize;
+        // A point can be a corner, so it'll appear on two sides.
+        // Distinguish them with the direction of the edge.
+        let mut seen = HashSet::<(Vector2D, Direction)>::new();
+        for &pos in self.plants.iter() {
+            for dir in Direction::all() {
+                let neighbour_pos = pos + dir.step();
+                if self.plants.contains(&neighbour_pos) {
+                    // Same plot, no edge between them
+                } else if seen.contains(&(pos, dir)) {
+                    // Already seen this side
+                } else {
+                    // New side
+                    sides += 1;
+                    // Mark all plants along this side
+                    let left_dir = dir.rotate_left();
+                    let mut left_pos = pos + left_dir.step();
+                    while self.plants.contains(&left_pos)
+                        && !self.plants.contains(&(left_pos + dir.step()))
+                    {
+                        seen.insert((left_pos, dir));
+                        left_pos += left_dir.step();
+                    }
+                    let right_dir = dir.rotate_right();
+                    let mut right_pos = pos + right_dir.step();
+                    while self.plants.contains(&right_pos)
+                        && !self.plants.contains(&(right_pos + dir.step()))
+                    {
+                        seen.insert((right_pos, dir));
+                        right_pos += right_dir.step();
+                    }
+                }
+            }
+        }
+        sides
+    }
+}
+
 #[aoc(day12, part2)]
 fn part2(garden: &Garden) -> usize {
-    todo!()
+    garden
+        .plots()
+        .into_iter()
+        .map(|plot| plot.area() * plot.sides())
+        .sum()
 }
 
 #[cfg(test)]
@@ -138,7 +182,40 @@ OOOOO";
     }
 
     #[test]
-    fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE1)), 0);
+    fn part2_example1() {
+        assert_eq!(part2(&parse(EXAMPLE1)), 80);
+    }
+
+    #[test]
+    fn part2_example2() {
+        assert_eq!(part2(&parse(EXAMPLE2)), 436);
+    }
+
+    const EXAMPLE_E: &str = r"EEEEE
+EXXXX
+EEEEE
+EXXXX
+EEEEE";
+
+    #[test]
+    fn part2_example_e() {
+        assert_eq!(part2(&parse(EXAMPLE_E)), 236);
+    }
+
+    const EXAMPLE_AB: &str = r"AAAAAA
+AAABBA
+AAABBA
+ABBAAA
+ABBAAA
+AAAAAA";
+
+    #[test]
+    fn part2_example_ab() {
+        assert_eq!(part2(&parse(EXAMPLE_AB)), 368);
+    }
+
+    #[test]
+    fn part2_example3() {
+        assert_eq!(part2(&parse(EXAMPLE3)), 1206);
     }
 }

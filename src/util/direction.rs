@@ -29,6 +29,15 @@ impl Direction {
         }
     }
 
+    pub fn rotate_left(self) -> Direction {
+        match self {
+            Direction::N => Direction::W,
+            Direction::W => Direction::S,
+            Direction::S => Direction::E,
+            Direction::E => Direction::N,
+        }
+    }
+
     pub fn rotate_right(self) -> Direction {
         match self {
             Direction::N => Direction::E,
