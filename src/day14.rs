@@ -1,5 +1,6 @@
 use crate::util::Vector2D;
 use aoc_runner_derive::{aoc, aoc_generator};
+use itertools::Itertools;
 use num_traits::Euclid;
 use regex::Regex;
 
@@ -38,7 +39,7 @@ fn solve_part1(robots: &[Robot], width: i32, height: i32) -> usize {
     safety_score(&robots, width, height)
 }
 
-fn simulate(robots: &mut Vec<Robot>, bounds: Vector2D) {
+fn simulate(robots: &mut [Robot], bounds: Vector2D) {
     for robot in robots.iter_mut() {
         robot.pos = (robot.pos + robot.vel).rem_euclid(&bounds);
     }
@@ -66,7 +67,28 @@ fn safety_score(robots: &[Robot], width: i32, height: i32) -> usize {
 
 #[aoc(day14, part2)]
 fn part2(input: &[Robot]) -> usize {
-    todo!()
+    let mut robots = input.to_vec();
+    let bounds = Vector2D::new(101, 103);
+    let mut i = 0;
+    loop {
+        simulate(&mut robots, bounds);
+        i += 1;
+        if most_robots_together(&robots, 40) {
+            break;
+        }
+    }
+    i
+}
+
+fn most_robots_together(robots: &[Robot], within: i32) -> bool {
+    let robots_together = robots
+        .iter()
+        .tuple_combinations()
+        .map(|(left, right)| (left.pos - right.pos).manhattan_distance())
+        .filter(|&dist| dist <= within)
+        .count();
+    let threshold = robots.len() * (robots.len() - 1) / 4;
+    robots_together > threshold
 }
 
 #[cfg(test)]
@@ -111,10 +133,5 @@ mod tests {
                 })
             })
             .collect()
-    }
-
-    #[test]
-    fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
     }
 }
