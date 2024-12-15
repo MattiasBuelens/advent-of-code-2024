@@ -1,22 +1,22 @@
 use crate::util::Vector2D;
 use aoc_runner_derive::{aoc, aoc_generator};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Behavior {
-    button_a: Vector2D,
-    button_b: Vector2D,
-    prize: Vector2D,
+    button_a: Vector2D<i64>,
+    button_b: Vector2D<i64>,
+    prize: Vector2D<i64>,
 }
 
 #[aoc_generator(day13)]
 fn parse(input: &str) -> Vec<Behavior> {
-    fn parse_button(s: &str) -> Vector2D {
+    fn parse_button(s: &str) -> Vector2D<i64> {
         let s = s.strip_prefix("X+").unwrap();
         let (dx, dy) = s.split_once(", Y+").unwrap();
         Vector2D::new(dx.parse().unwrap(), dy.parse().unwrap())
     }
 
-    fn parse_prize(s: &str) -> Vector2D {
+    fn parse_prize(s: &str) -> Vector2D<i64> {
         let s = s.strip_prefix("Prize: X=").unwrap();
         let (x, y) = s.split_once(", Y=").unwrap();
         Vector2D::new(x.parse().unwrap(), y.parse().unwrap())
@@ -39,7 +39,7 @@ fn parse(input: &str) -> Vec<Behavior> {
 }
 
 impl Behavior {
-    fn solve(&self) -> Option<(i32, i32)> {
+    fn solve(&self) -> Option<(i64, i64)> {
         // Ax * a + Bx * b = Px
         // Ay * a + By * b = Py
         //
@@ -48,8 +48,8 @@ impl Behavior {
         // Ay * Px - Ay * Bx * b + Ax * By * b = Ax * Py
         // (Ax * By - Ay * Bx) * b = (Ax * Py) - (Ay * Px)
         // determinant = Ax * By - Ay * Bx
-        let determinant =
-            self.button_a.x() * self.button_b.y() - self.button_a.y() * self.button_b.x();
+        let determinant = self.button_a.x().checked_mul(self.button_b.y()).unwrap()
+            - self.button_a.y().checked_mul(self.button_b.x()).unwrap();
         if determinant == 0 {
             // Button A and button B are collinear
             // Use the cheapest button (B) to reach the prize
@@ -62,7 +62,8 @@ impl Behavior {
             };
         }
         // b = (Ax * Py - Ay * Px) / determinant
-        let quotient = self.button_a.x() * self.prize.y() - self.button_a.y() * self.prize.x();
+        let quotient = self.button_a.x().checked_mul(self.prize.y()).unwrap()
+            - self.button_a.y().checked_mul(self.prize.x()).unwrap();
         if quotient % determinant != 0 {
             // Can't do half presses, this isn't Super Mario 64
             return None;
@@ -75,7 +76,7 @@ impl Behavior {
 }
 
 #[aoc(day13, part1)]
-fn part1(input: &[Behavior]) -> i32 {
+fn part1(input: &[Behavior]) -> i64 {
     input
         .iter()
         .filter_map(Behavior::solve)
@@ -84,7 +85,7 @@ fn part1(input: &[Behavior]) -> i32 {
 }
 
 #[aoc(day13, part2)]
-fn part2(input: &[Behavior]) -> i32 {
+fn part2(input: &[Behavior]) -> i64 {
     todo!()
 }
 
