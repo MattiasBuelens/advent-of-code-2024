@@ -1,12 +1,15 @@
 use std::fmt::{Debug, Display};
 use std::iter::Sum;
-use std::ops::Neg;
+use std::ops::{Div, Neg, Rem};
 
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, Euclid};
 
 pub trait Num:
     num_traits::NumAssign
     + Neg<Output = Self>
+    + Div<Self, Output = Self>
+    + Rem<Self, Output = Self>
+    + Euclid
     + PartialOrd
     + Sum<Self>
     + AsPrimitive<f64>

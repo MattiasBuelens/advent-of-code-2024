@@ -1,9 +1,9 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-
-use approx::relative_ne;
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 
 use super::num::Num;
+use approx::relative_ne;
+use num_traits::Euclid;
 
 #[derive(Eq, PartialEq, Copy, Clone, Hash, Ord, PartialOrd)]
 pub struct Vector<const N: usize, T: Num = i32> {
@@ -196,9 +196,42 @@ impl<const N: usize, T: Num> Div<T> for Vector<N, T> {
     }
 }
 
+impl<const N: usize, T: Num> Div<Vector<N, T>> for Vector<N, T> {
+    type Output = Self;
+
+    fn div(self, rhs: Vector<N, T>) -> Self::Output {
+        self.zip_with(&rhs, |x, y| x / y)
+    }
+}
+
 impl<const N: usize, T: Num> DivAssign<T> for Vector<N, T> {
     fn div_assign(&mut self, rhs: T) {
         self.for_each(|x| x.div_assign(rhs));
+    }
+}
+
+impl<const N: usize, T: Num> Rem<T> for Vector<N, T> {
+    type Output = Self;
+
+    fn rem(self, rhs: T) -> Self::Output {
+        self.map(|x| x % rhs)
+    }
+}
+impl<const N: usize, T: Num> Rem<Vector<N, T>> for Vector<N, T> {
+    type Output = Self;
+
+    fn rem(self, rhs: Vector<N, T>) -> Self::Output {
+        self.zip_with(&rhs, |x, y| x % y)
+    }
+}
+
+impl<const N: usize, T: Num> Euclid for Vector<N, T> {
+    fn div_euclid(&self, v: &Self) -> Self {
+        self.zip_with(v, |x, y| x.div_euclid(&y))
+    }
+
+    fn rem_euclid(&self, v: &Self) -> Self {
+        self.zip_with(v, |x, y| x.rem_euclid(&y))
     }
 }
 
