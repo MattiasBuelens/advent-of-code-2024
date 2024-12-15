@@ -117,21 +117,14 @@ impl Plot {
                     // New side
                     sides += 1;
                     // Mark all plants along this side
-                    let left_dir = dir.rotate_left();
-                    let mut left_pos = pos + left_dir.step();
-                    while self.plants.contains(&left_pos)
-                        && !self.plants.contains(&(left_pos + dir.step()))
-                    {
-                        seen.insert((left_pos, dir));
-                        left_pos += left_dir.step();
-                    }
-                    let right_dir = dir.rotate_right();
-                    let mut right_pos = pos + right_dir.step();
-                    while self.plants.contains(&right_pos)
-                        && !self.plants.contains(&(right_pos + dir.step()))
-                    {
-                        seen.insert((right_pos, dir));
-                        right_pos += right_dir.step();
+                    for step_dir in [dir.rotate_left(), dir.rotate_right()] {
+                        let mut pos = pos + step_dir.step();
+                        while self.plants.contains(&pos)
+                            && !self.plants.contains(&(pos + dir.step()))
+                        {
+                            seen.insert((pos, dir));
+                            pos += step_dir.step();
+                        }
                     }
                 }
             }
