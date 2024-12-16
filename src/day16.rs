@@ -38,29 +38,31 @@ struct State {
     dir: Direction,
 }
 
+fn successors<'a>(state: &State, maze: &'a Maze) -> impl Iterator<Item = (State, i32)> + use<'a> {
+    let &State { pos, dir } = state;
+    // Move one step forward for 1 point
+    let move_forward = std::iter::once(State {
+        pos: pos + dir.step(),
+        dir,
+    })
+    .filter(|state| !maze.walls.contains(&state.pos))
+    .map(|state| (state, 1));
+    // Turn clockwise or counterclockwise for 1000 points
+    let turn = [dir.rotate_left(), dir.rotate_right()]
+        .into_iter()
+        .map(move |dir| State { pos, dir })
+        .map(|state| (state, 1000));
+    move_forward.chain(turn)
+}
+
 #[aoc(day16, part1)]
 fn part1(maze: &Maze) -> i32 {
-    let (path, cost) = astar(
+    let (_path, cost) = astar(
         &State {
             pos: maze.start,
             dir: Direction::E,
         },
-        |state| {
-            let &State { pos, dir } = state;
-            // Move one step forward for 1 point
-            let move_forward = std::iter::once(State {
-                pos: pos + dir.step(),
-                dir,
-            })
-            .filter(|state| !maze.walls.contains(&state.pos))
-            .map(|state| (state, 1));
-            // Turn clockwise or counterclockwise for 1000 points
-            let turn = [dir.rotate_left(), dir.rotate_right()]
-                .into_iter()
-                .map(move |dir| State { pos, dir })
-                .map(|state| (state, 1000));
-            move_forward.chain(turn)
-        },
+        |state| successors(state, maze),
         |state| (state.pos - maze.end).manhattan_distance(),
         |state| state.pos == maze.end,
     )
