@@ -1,6 +1,7 @@
 use crate::util::{Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
-use pathfinding::prelude::astar;
+use itertools::Itertools;
+use pathfinding::prelude::{astar, astar_bag};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -71,8 +72,19 @@ fn part1(maze: &Maze) -> i32 {
 }
 
 #[aoc(day16, part2)]
-fn part2(input: &Maze) -> u64 {
-    todo!()
+fn part2(maze: &Maze) -> usize {
+    let (solution, _cost) = astar_bag(
+        &State {
+            pos: maze.start,
+            dir: Direction::E,
+        },
+        |state| successors(state, maze),
+        |state| (state.pos - maze.end).manhattan_distance(),
+        |state| state.pos == maze.end,
+    )
+    .expect("no path found");
+    let best_tiles = solution.flatten().map(|state| state.pos).unique();
+    best_tiles.count()
 }
 
 #[cfg(test)]
@@ -93,7 +105,12 @@ mod tests {
     }
 
     #[test]
-    fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE1)), 0);
+    fn part2_example1() {
+        assert_eq!(part2(&parse(EXAMPLE1)), 45);
+    }
+
+    #[test]
+    fn part2_example2() {
+        assert_eq!(part2(&parse(EXAMPLE2)), 64);
     }
 }
