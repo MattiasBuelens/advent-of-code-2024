@@ -230,7 +230,7 @@ fn print_combo(operand: u8) {
     }
 }
 
-fn part2_decompiled(mut a: u64, expected: &[u8], mut output: Option<&mut Vec<u8>>) -> bool {
+fn part2_decompiled(mut a: u64, expected: &[u8]) -> usize {
     // let mut b = 0u64;
     // let mut c = 0u64;
     /*
@@ -255,11 +255,8 @@ fn part2_decompiled(mut a: u64, expected: &[u8], mut output: Option<&mut Vec<u8>
         // - Up to 7 bits from (a >> (b ^ 4)), where b <= 7
         // - 3 bits from (b = a & 0b111)
         let value = (b & 0b111) as u8;
-        if let Some(output) = output.as_mut() {
-            output.push(value);
-        }
         if value != expected[output_index] {
-            return false;
+            break;
         }
         output_index += 1;
         a >>= 3;
@@ -267,7 +264,7 @@ fn part2_decompiled(mut a: u64, expected: &[u8], mut output: Option<&mut Vec<u8>
             break;
         }
     }
-    output_index == expected.len()
+    output_index
 }
 
 fn part2_reverse(output: &[u8]) -> Option<u64> {
@@ -281,7 +278,8 @@ fn part2_reverse_inner(output: &[u8], mut a: u64, index: usize) -> Option<u64> {
     for bits in 0u64..1024 {
         let a = a | bits;
         // Check if we get the expected output starting from index
-        if part2_decompiled(a, &output[index..], None) {
+        let expected = &output[index..];
+        if part2_decompiled(a, expected) == expected.len() {
             if index == 0 {
                 // Matched entire output
                 return Some(a);
