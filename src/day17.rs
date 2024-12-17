@@ -62,7 +62,7 @@ impl TryFrom<u8> for Opcode {
 }
 
 impl Program {
-    fn run(&mut self) -> Vec<u64> {
+    fn run(&mut self) -> Vec<u8> {
         let mut output = Vec::new();
         while self.pc + 1 < self.code.len() {
             if let Some(value) = self.step() {
@@ -72,11 +72,12 @@ impl Program {
         output
     }
 
-    fn run_while_matching(&mut self) -> bool {
+    fn run_while_matching(&mut self, output: &mut Vec<u8>) -> bool {
         let mut output_index = 0;
         while self.pc + 1 < self.code.len() {
             if let Some(value) = self.step() {
-                if value != self.code[output_index] as u64 {
+                output.push(value);
+                if value != self.code[output_index] {
                     return false;
                 }
                 output_index += 1;
@@ -85,7 +86,7 @@ impl Program {
         output_index == self.code.len()
     }
 
-    fn step(&mut self) -> Option<u64> {
+    fn step(&mut self) -> Option<u8> {
         let opcode = Opcode::try_from(self.code[self.pc]).expect("invalid opcode");
         let operand = self.code[self.pc + 1];
         self.pc += 2;
@@ -95,11 +96,13 @@ impl Program {
             Opcode::Bst => self.registers[1] = self.combo(operand) & 0b111,
             Opcode::Jnz => {
                 if self.registers[0] != 0 {
+                    // dbg!(self.pc - 2, opcode, operand);
+                    // dbg!(&self.code[(self.pc - 2)..]);
                     self.pc = operand as usize;
                 }
             }
             Opcode::Bxc => self.registers[1] ^= self.registers[2],
-            Opcode::Out => return Some(self.combo(operand) & 0b111),
+            Opcode::Out => return Some((self.combo(operand) & 0b111) as u8),
             Opcode::Bdv => self.registers[1] = self.registers[0] >> self.combo(operand),
             Opcode::Cdv => self.registers[2] = self.registers[0] >> self.combo(operand),
         }
@@ -128,18 +131,134 @@ fn part1(program: &Program) -> String {
 
 #[aoc(day17, part2)]
 fn part2(program: &Program) -> u64 {
+    // print_code(program);
+    let is_real_input = program.code.len() == 16;
     let mut new_program = program.clone();
+    let mut output = Vec::with_capacity(program.code.len());
+    let mut longest_match = 0usize;
     for a in 0u64.. {
-        if a % 10_000_000 == 0 {
-            dbg!(a);
+        if a % 100_000_000 == 0 {
+            println!("a={a}");
         }
-        new_program.reset(program);
-        new_program.registers[0] = a;
-        if new_program.run_while_matching() {
+        output.clear();
+        let success = if is_real_input {
+            part2_decompiled(a, &program.code, &mut output);
+            &output[..] == &program.code[..]
+        } else {
+            new_program.reset(program);
+            new_program.registers[0] = a;
+            new_program.run_while_matching(&mut output)
+        };
+        if output.len() >= longest_match {
+            longest_match = output.len();
+            println!("a={a}, longest_match={longest_match}, output={output:?}");
+            // Check if the decompilation is correct
+            if is_real_input {
+                let real_output = std::mem::replace(&mut output, Vec::new());
+                new_program.reset(program);
+                new_program.registers[0] = a;
+                new_program.run_while_matching(&mut output);
+                assert_eq!(&output[..], &real_output[..]);
+            }
+        }
+        if success {
             return a;
         }
     }
     panic!("no value found for A");
+}
+
+#[allow(unused)]
+fn print_code(program: &Program) {
+    for (i, chunk) in program.code.chunks(2).enumerate() {
+        let opcode = Opcode::try_from(chunk[0]).expect("invalid opcode");
+        let operand = chunk[1];
+        // println!("{opcode:?} {operand}");
+        print!("{i:#02}: ");
+        match opcode {
+            Opcode::Adv => {
+                // self.registers[0] >>= self.combo(operand),
+                print!("A >>= ");
+                print_combo(operand);
+            }
+            Opcode::Bxl => {
+                // self.registers[1] ^= operand as u64,
+                print!("B ^= {operand}");
+            }
+            Opcode::Bst => {
+                // self.registers[1] = self.combo(operand) & 0b111
+                print!("B = ");
+                print_combo(operand);
+                print!(" & 0b111")
+            }
+            Opcode::Jnz => {
+                // if self.registers[0] != 0 { self.pc = operand as usize; }
+                print!("if (A != 0) JUMP {}", operand / 2);
+            }
+            Opcode::Bxc => {
+                // self.registers[1] ^= self.registers[2]
+                print!("B ^= C");
+            }
+            Opcode::Out => {
+                // return Some(self.combo(operand) & 0b111)
+                print!("OUTPUT ");
+                print_combo(operand);
+                print!(" & 0b111")
+            }
+            Opcode::Bdv => {
+                // self.registers[1] = self.registers[0] >> self.combo(operand)
+                print!("B = A >> ");
+                print_combo(operand);
+            }
+            Opcode::Cdv => {
+                // self.registers[2] = self.registers[0] >> self.combo(operand)
+                print!("C = A >> ");
+                print_combo(operand);
+            }
+        }
+        println!();
+    }
+}
+
+fn print_combo(operand: u8) {
+    match operand {
+        0..=3 => print!("{operand}"),
+        4 => print!("A"),
+        5 => print!("B"),
+        6 => print!("C"),
+        7 => panic!("reserved"),
+        _ => panic!("invalid combo operand {operand}"),
+    }
+}
+
+fn part2_decompiled(mut a: u64, expected: &[u8], output: &mut Vec<u8>) {
+    let mut b = 0u64;
+    let mut c = 0u64;
+    /*
+    00: B = A & 0b111
+    01: B ^= 4
+    02: C = A >> B
+    03: B ^= C
+    04: B ^= 4
+    05: OUTPUT B & 0b111
+    06: A >>= 3
+    07: if (A != 0) JUMP 0
+     */
+    loop {
+        b = a & 0b111;
+        b ^= 4;
+        c = a >> b;
+        b ^= c;
+        b ^= 4;
+        output.push((b & 0b111) as u8);
+        if &output[..] != &expected[..output.len()] {
+            break;
+        }
+        a >>= 3;
+        if a == 0 {
+            break;
+        }
+    }
 }
 
 #[cfg(test)]
