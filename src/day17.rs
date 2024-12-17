@@ -65,26 +65,30 @@ impl Program {
     fn run(&mut self) -> Vec<i32> {
         let mut out = Vec::new();
         while self.pc + 1 < self.code.len() {
-            let opcode = Opcode::try_from(self.code[self.pc]).expect("invalid opcode");
-            let operand = self.code[self.pc + 1];
-            match opcode {
-                Opcode::Adv => self.registers[0] >>= self.combo(operand),
-                Opcode::Bxl => self.registers[1] ^= operand as i32,
-                Opcode::Bst => self.registers[1] = self.combo(operand) & 0b111,
-                Opcode::Jnz => {
-                    if self.registers[0] != 0 {
-                        self.pc = operand as usize;
-                        continue;
-                    }
-                }
-                Opcode::Bxc => self.registers[1] ^= self.registers[2],
-                Opcode::Out => out.push(self.combo(operand) & 0b111),
-                Opcode::Bdv => self.registers[1] = self.registers[0] >> self.combo(operand),
-                Opcode::Cdv => self.registers[2] = self.registers[0] >> self.combo(operand),
-            }
-            self.pc += 2;
+            self.step(&mut out);
         }
         out
+    }
+
+    fn step(&mut self, out: &mut Vec<i32>) {
+        let opcode = Opcode::try_from(self.code[self.pc]).expect("invalid opcode");
+        let operand = self.code[self.pc + 1];
+        match opcode {
+            Opcode::Adv => self.registers[0] >>= self.combo(operand),
+            Opcode::Bxl => self.registers[1] ^= operand as i32,
+            Opcode::Bst => self.registers[1] = self.combo(operand) & 0b111,
+            Opcode::Jnz => {
+                if self.registers[0] != 0 {
+                    self.pc = operand as usize;
+                    return;
+                }
+            }
+            Opcode::Bxc => self.registers[1] ^= self.registers[2],
+            Opcode::Out => out.push(self.combo(operand) & 0b111),
+            Opcode::Bdv => self.registers[1] = self.registers[0] >> self.combo(operand),
+            Opcode::Cdv => self.registers[2] = self.registers[0] >> self.combo(operand),
+        }
+        self.pc += 2;
     }
 
     fn combo(&self, operand: u8) -> i32 {
