@@ -96,8 +96,6 @@ impl Program {
             Opcode::Bst => self.registers[1] = self.combo(operand) & 0b111,
             Opcode::Jnz => {
                 if self.registers[0] != 0 {
-                    // dbg!(self.pc - 2, opcode, operand);
-                    // dbg!(&self.code[(self.pc - 2)..]);
                     self.pc = operand as usize;
                 }
             }
@@ -131,8 +129,22 @@ fn part1(program: &Program) -> String {
 
 #[aoc(day17, part2)]
 fn part2(program: &Program) -> u64 {
-    // print_code(program);
     let is_real_input = program.code.len() == 16;
+    if is_real_input {
+        let a = part2_reverse(&program.code).unwrap();
+        // Double check
+        let mut program = program.clone();
+        program.registers[0] = a;
+        let output = program.run();
+        assert_eq!(&output[..], &program.code);
+        a
+    } else {
+        part2_naive(program)
+    }
+}
+
+fn part2_naive(program: &Program) -> u64 {
+    // print_code(program);
     let mut new_program = program.clone();
     let mut output = Vec::with_capacity(program.code.len());
     let mut longest_match = 0usize;
@@ -141,25 +153,12 @@ fn part2(program: &Program) -> u64 {
             println!("a={a}");
         }
         output.clear();
-        let success = if is_real_input {
-            part2_decompiled(a, &program.code, &mut output);
-            &output[..] == &program.code[..]
-        } else {
-            new_program.reset(program);
-            new_program.registers[0] = a;
-            new_program.run_while_matching(&mut output)
-        };
+        new_program.reset(program);
+        new_program.registers[0] = a;
+        let success = new_program.run_while_matching(&mut output);
         if output.len() >= longest_match {
             longest_match = output.len();
             println!("a={a}, longest_match={longest_match}, output={output:?}");
-            // Check if the decompilation is correct
-            if is_real_input {
-                let real_output = std::mem::replace(&mut output, Vec::new());
-                new_program.reset(program);
-                new_program.registers[0] = a;
-                new_program.run_while_matching(&mut output);
-                assert_eq!(&output[..], &real_output[..]);
-            }
         }
         if success {
             return a;
@@ -231,9 +230,9 @@ fn print_combo(operand: u8) {
     }
 }
 
-fn part2_decompiled(mut a: u64, expected: &[u8], output: &mut Vec<u8>) {
-    let mut b = 0u64;
-    let mut c = 0u64;
+fn part2_decompiled(mut a: u64, expected: &[u8], mut output: Option<&mut Vec<u8>>) -> bool {
+    // let mut b = 0u64;
+    // let mut c = 0u64;
     /*
     00: B = A & 0b111
     01: B ^= 4
@@ -244,21 +243,55 @@ fn part2_decompiled(mut a: u64, expected: &[u8], output: &mut Vec<u8>) {
     06: A >>= 3
     07: if (A != 0) JUMP 0
      */
+    let mut output_index = 0;
     loop {
-        b = a & 0b111;
-        b ^= 4;
-        c = a >> b;
-        b ^= c;
-        b ^= 4;
-        output.push((b & 0b111) as u8);
-        if &output[..] != &expected[..output.len()] {
-            break;
+        let mut b = a & 0b111;
+        // b ^= 4;
+        // c = a >> b;
+        // b ^= c;
+        // b ^= 4;
+        b ^= a >> (b ^ 0b100);
+        // This output value depends only on the last 10 bits of A
+        // - Up to 7 bits from (a >> (b ^ 4)), where b <= 7
+        // - 3 bits from (b = a & 0b111)
+        let value = (b & 0b111) as u8;
+        if let Some(output) = output.as_mut() {
+            output.push(value);
         }
+        if value != expected[output_index] {
+            return false;
+        }
+        output_index += 1;
         a >>= 3;
         if a == 0 {
             break;
         }
     }
+    output_index == expected.len()
+}
+
+fn part2_reverse(output: &[u8]) -> Option<u64> {
+    part2_reverse_inner(output, 0, output.len() - 1)
+}
+
+fn part2_reverse_inner(output: &[u8], mut a: u64, index: usize) -> Option<u64> {
+    // Shift for the next iteration
+    a <<= 3;
+    // Try all possible 10 bit values
+    for bits in 0u64..1024 {
+        let a = a | bits;
+        // Check if we get the expected output starting from index
+        if part2_decompiled(a, &output[index..], None) {
+            if index == 0 {
+                // Matched entire output
+                return Some(a);
+            } else if let Some(a) = part2_reverse_inner(output, a, index - 1) {
+                // Recurse
+                return Some(a);
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]
