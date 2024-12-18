@@ -114,17 +114,6 @@ fn part1(program: &Program) -> String {
     program.clone().run().iter().join(",")
 }
 
-#[aoc(day17, part2)]
-fn part2(program: &Program) -> u64 {
-    let a = part2_real(&program).unwrap();
-    // Double check
-    let mut program = program.clone();
-    program.registers[0] = a;
-    let output = program.run();
-    assert_eq!(&output[..], &program.code);
-    a
-}
-
 #[allow(unused)]
 fn print_code(program: &Program) {
     for (i, chunk) in program.code.chunks(2).enumerate() {
@@ -228,7 +217,8 @@ fn part2_decompiled(mut a: u64, expected: &[u8]) -> usize {
 
 type InputByOutputMap = IntMap<u8, Vec<u64>>;
 
-fn part2_real(program: &Program) -> Option<u64> {
+#[aoc(day17, part2)]
+fn part2(program: &Program) -> u64 {
     // Each output value depends only on the last 10 bits of A.
     // Precompute every way to get every output.
     let mut input_for_output = InputByOutputMap::default();
@@ -243,7 +233,7 @@ fn part2_real(program: &Program) -> Option<u64> {
     let (first_output, output) = program.code.split_last().unwrap();
     let mut best: Option<u64> = None;
     // Go through every way to generate the first output.
-    for &a in input_for_output.get(&first_output).unwrap() {
+    for &a in input_for_output.get(first_output).unwrap() {
         // Tricky: never use 0 as the first input.
         if a == 0 {
             continue;
@@ -256,7 +246,13 @@ fn part2_real(program: &Program) -> Option<u64> {
             });
         }
     }
-    best
+    let a = best.expect("no solution found");
+    // Double check
+    let mut program = program.clone();
+    program.registers[0] = a;
+    let output = program.run();
+    assert_eq!(&output[..], &program.code);
+    a
 }
 
 fn part2_solve_inner(
@@ -272,7 +268,7 @@ fn part2_solve_inner(
     // Shift for the next iteration.
     a <<= 3;
     // Go through every way to generate the next output.
-    for &input in input_for_output.get(&next_output).unwrap() {
+    for &input in input_for_output.get(next_output).unwrap() {
         // Bits 4 through 10 cannot change.
         const MASK: u64 = 0b11_1111_1000;
         if (a & MASK) != (input & MASK) {
@@ -280,7 +276,7 @@ fn part2_solve_inner(
         }
         // Recurse with this new A.
         let a = a | input;
-        if let Some(solution) = part2_solve_inner(output, &input_for_output, a) {
+        if let Some(solution) = part2_solve_inner(output, input_for_output, a) {
             best = Some(match best {
                 Some(best) => best.min(solution),
                 None => solution,
