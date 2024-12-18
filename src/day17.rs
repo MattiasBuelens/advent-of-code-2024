@@ -1,5 +1,6 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::Itertools;
+use nohash_hasher::IntMap;
 
 #[derive(Debug, Clone)]
 struct Program {
@@ -131,7 +132,7 @@ fn part1(program: &Program) -> String {
 fn part2(program: &Program) -> u64 {
     let is_real_input = program.code.len() == 16;
     if is_real_input {
-        let a = part2_reverse(&program.code).unwrap();
+        let a = part2_real(&program).unwrap();
         // Double check
         let mut program = program.clone();
         program.registers[0] = a;
@@ -267,29 +268,68 @@ fn part2_decompiled(mut a: u64, expected: &[u8]) -> usize {
     output_index
 }
 
-fn part2_reverse(output: &[u8]) -> Option<u64> {
-    part2_reverse_inner(output, 0, output.len() - 1)
-}
+type InputByOutputMap = IntMap<u8, Vec<u64>>;
 
-fn part2_reverse_inner(output: &[u8], mut a: u64, index: usize) -> Option<u64> {
-    // Shift for the next iteration
-    a <<= 3;
-    // Try all possible 10 bit values
-    for bits in 0u64..1024 {
-        let a = a | bits;
-        // Check if we get the expected output starting from index
-        let expected = &output[index..];
-        if part2_decompiled(a, expected) == expected.len() {
-            if index == 0 {
-                // Matched entire output
-                return Some(a);
-            } else if let Some(a) = part2_reverse_inner(output, a, index - 1) {
-                // Recurse
-                return Some(a);
-            }
+fn part2_real(program: &Program) -> Option<u64> {
+    // Each output value depends only on the last 10 bits of A.
+    // Precompute every way to get every output.
+    let mut input_for_output = InputByOutputMap::default();
+    let mut test_program = program.clone();
+    for input in 0u64..1024 {
+        test_program.reset(program);
+        test_program.registers[0] = input;
+        let output = test_program.run();
+        input_for_output.entry(output[0]).or_default().push(input);
+    }
+    // Solve recursively.
+    let (first_output, output) = program.code.split_last().unwrap();
+    let mut best: Option<u64> = None;
+    // Go through every way to generate the first output.
+    for &a in input_for_output.get(&first_output).unwrap() {
+        // Tricky: never use 0 as the first input.
+        if a == 0 {
+            continue;
+        }
+        // Try to generate the remaining outputs starting with this A.
+        if let Some(solution) = part2_solve_inner(output, &input_for_output, a) {
+            best = Some(match best {
+                Some(best) => best.min(solution),
+                None => solution,
+            });
         }
     }
-    None
+    best
+}
+
+fn part2_solve_inner(
+    output: &[u8],
+    input_for_output: &InputByOutputMap,
+    mut a: u64,
+) -> Option<u64> {
+    let Some((next_output, output)) = output.split_last() else {
+        // Done, matched the entire output.
+        return Some(a);
+    };
+    let mut best: Option<u64> = None;
+    // Shift for the next iteration.
+    a <<= 3;
+    // Go through every way to generate the next output.
+    for &input in input_for_output.get(&next_output).unwrap() {
+        // Bits 4 through 10 cannot change.
+        const MASK: u64 = 0b11_1111_1000;
+        if (a & MASK) != (input & MASK) {
+            continue;
+        }
+        // Recurse with this new A.
+        let a = a | input;
+        if let Some(solution) = part2_solve_inner(output, &input_for_output, a) {
+            best = Some(match best {
+                Some(best) => best.min(solution),
+                None => solution,
+            });
+        }
+    }
+    best
 }
 
 #[cfg(test)]
