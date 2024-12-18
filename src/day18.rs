@@ -50,9 +50,19 @@ fn part1(input: &Input) -> usize {
     find_path(&input[0..1024], 70).expect("no solution found")
 }
 
+fn find_first_blocker(bytes: &[Vector2D], size: i32) -> Option<Vector2D> {
+    for i in 0..bytes.len() {
+        if let None = find_path(&bytes[0..(i + 1)], size) {
+            return Some(bytes[i]);
+        }
+    }
+    None
+}
+
 #[aoc(day18, part2)]
-fn part2(input: &Input) -> usize {
-    todo!()
+fn part2(input: &Input) -> String {
+    let blocker = find_first_blocker(input, 70).expect("no blocker found");
+    format!("{},{}", blocker.x(), blocker.y())
 }
 
 #[cfg(test)]
@@ -69,6 +79,7 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        let input = parse(EXAMPLE);
+        assert_eq!(find_first_blocker(&input, 6), Some(Vector2D::new(6, 1)));
     }
 }
