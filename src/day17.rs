@@ -73,20 +73,6 @@ impl Program {
         output
     }
 
-    fn run_while_matching(&mut self, output: &mut Vec<u8>) -> bool {
-        let mut output_index = 0;
-        while self.pc + 1 < self.code.len() {
-            if let Some(value) = self.step() {
-                output.push(value);
-                if value != self.code[output_index] {
-                    return false;
-                }
-                output_index += 1;
-            }
-        }
-        output_index == self.code.len()
-    }
-
     fn step(&mut self) -> Option<u8> {
         let opcode = Opcode::try_from(self.code[self.pc]).expect("invalid opcode");
         let operand = self.code[self.pc + 1];
@@ -130,42 +116,13 @@ fn part1(program: &Program) -> String {
 
 #[aoc(day17, part2)]
 fn part2(program: &Program) -> u64 {
-    let is_real_input = program.code.len() == 16;
-    if is_real_input {
-        let a = part2_real(&program).unwrap();
-        // Double check
-        let mut program = program.clone();
-        program.registers[0] = a;
-        let output = program.run();
-        assert_eq!(&output[..], &program.code);
-        a
-    } else {
-        part2_naive(program)
-    }
-}
-
-fn part2_naive(program: &Program) -> u64 {
-    // print_code(program);
-    let mut new_program = program.clone();
-    let mut output = Vec::with_capacity(program.code.len());
-    let mut longest_match = 0usize;
-    for a in 0u64.. {
-        if a % 100_000_000 == 0 {
-            println!("a={a}");
-        }
-        output.clear();
-        new_program.reset(program);
-        new_program.registers[0] = a;
-        let success = new_program.run_while_matching(&mut output);
-        if output.len() >= longest_match {
-            longest_match = output.len();
-            println!("a={a}, longest_match={longest_match}, output={output:?}");
-        }
-        if success {
-            return a;
-        }
-    }
-    panic!("no value found for A");
+    let a = part2_real(&program).unwrap();
+    // Double check
+    let mut program = program.clone();
+    program.registers[0] = a;
+    let output = program.run();
+    assert_eq!(&output[..], &program.code);
+    a
 }
 
 #[allow(unused)]
@@ -231,6 +188,7 @@ fn print_combo(operand: u8) {
     }
 }
 
+#[allow(unused)]
 fn part2_decompiled(mut a: u64, expected: &[u8]) -> usize {
     // let mut b = 0u64;
     // let mut c = 0u64;
