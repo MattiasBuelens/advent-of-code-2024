@@ -14,37 +14,49 @@ fn parse(input: &str) -> Input {
     Input { towels, designs }
 }
 
-fn can_make<'a>(design: &'a str, towels: &[String], cache: &mut HashMap<&'a str, bool>) -> bool {
+fn count_arrangements<'a>(
+    design: &'a str,
+    towels: &[String],
+    cache: &mut HashMap<&'a str, usize>,
+) -> usize {
     if design.is_empty() {
-        return true;
+        return 1;
     }
     if let Some(&answer) = cache.get(design) {
         return answer;
     }
-    let answer = towels.iter().any(|towel| {
-        if let Some(remainder) = design.strip_prefix(towel) {
-            can_make(remainder, towels, cache)
-        } else {
-            false
-        }
-    });
+    let answer = towels
+        .iter()
+        .map(|towel| {
+            if let Some(remainder) = design.strip_prefix(towel) {
+                count_arrangements(remainder, towels, cache)
+            } else {
+                0
+            }
+        })
+        .sum();
     cache.insert(design, answer);
     answer
 }
 
 #[aoc(day19, part1)]
 fn part1(input: &Input) -> usize {
-    let mut cache = HashMap::<&str, bool>::new();
+    let mut cache = HashMap::<&str, usize>::new();
     input
         .designs
         .iter()
-        .filter(|design| can_make(design, &input.towels, &mut cache))
+        .filter(|design| count_arrangements(design, &input.towels, &mut cache) != 0)
         .count()
 }
 
 #[aoc(day19, part2)]
 fn part2(input: &Input) -> usize {
-    todo!()
+    let mut cache = HashMap::<&str, usize>::new();
+    input
+        .designs
+        .iter()
+        .map(|design| count_arrangements(design, &input.towels, &mut cache))
+        .sum()
 }
 
 #[cfg(test)]
@@ -60,6 +72,6 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        assert_eq!(part2(&parse(EXAMPLE)), 16);
     }
 }
