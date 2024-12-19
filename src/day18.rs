@@ -52,7 +52,7 @@ fn part1(input: &Input) -> usize {
 
 fn find_first_blocker(bytes: &[Vector2D], size: i32) -> Option<Vector2D> {
     for i in 0..bytes.len() {
-        if let None = find_path(&bytes[0..(i + 1)], size) {
+        if find_path(&bytes[0..(i + 1)], size).is_none() {
             return Some(bytes[i]);
         }
     }

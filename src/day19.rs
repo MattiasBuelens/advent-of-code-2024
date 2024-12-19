@@ -21,15 +21,13 @@ fn can_make<'a>(design: &'a str, towels: &[String], cache: &mut HashMap<&'a str,
     if let Some(&answer) = cache.get(design) {
         return answer;
     }
-    let mut answer = false;
-    for towel in towels {
+    let answer = towels.iter().any(|towel| {
         if let Some(remainder) = design.strip_prefix(towel) {
-            if can_make(remainder, towels, cache) {
-                answer = true;
-                break;
-            }
+            can_make(remainder, towels, cache)
+        } else {
+            false
         }
-    }
+    });
     cache.insert(design, answer);
     answer
 }
