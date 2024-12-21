@@ -2,7 +2,7 @@ use crate::util::{Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
 use indexmap::IndexMap;
 use pathfinding::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 struct Maze {
@@ -113,19 +113,24 @@ fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
         },
         0,
     );
-    let mut cheats = HashMap::<(Vector2D, Vector2D), usize>::default();
+    let mut cheats = HashSet::<(Vector2D, Vector2D)>::new();
     let mut i = 0;
     while let Some((parent, &cost)) = parents.get_index(i) {
         let cost = cost + 1;
         if cost > max_cost {
+            // Path too long.
             break;
         }
         for next in successors(parent.clone(), maze) {
             if next.pos == maze.end {
-                let prev_cost = cheats
-                    .entry((next.start.unwrap(), next.end.unwrap()))
-                    .or_default();
-                *prev_cost = (*prev_cost).min(cost);
+                // Cheated our way to the end!
+                cheats.insert((next.start.unwrap(), next.end.unwrap()));
+            }
+            if let (Some(start), Some(end)) = (next.start, next.end) {
+                if cheats.contains(&(start, end)) {
+                    // Already seen this cheat before.
+                    continue;
+                }
             }
             parents.entry(next).or_insert(cost);
         }
