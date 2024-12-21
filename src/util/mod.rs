@@ -11,3 +11,4 @@ mod math;
 mod num;
 mod slice;
 mod vector;
+mod astar;

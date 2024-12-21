@@ -17,6 +17,7 @@ dependencies = [
  "num-traits",
  "pathfinding",
  "regex",
+ "rustc-hash",
 ]
 
 [[package]]
