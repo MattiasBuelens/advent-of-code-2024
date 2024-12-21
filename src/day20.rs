@@ -1,5 +1,6 @@
 use crate::util::{Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
+use indexmap::map::Entry;
 use indexmap::IndexMap;
 use nohash_hasher::IntMap;
 use pathfinding::prelude::*;
@@ -103,7 +104,7 @@ fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
         0,
     );
     let mut cheats = HashSet::<(Vector2D, Vector2D)>::new();
-    let mut cheats_by_savings = IntMap::<usize, Vec<State>>::default();
+    let mut cheats_by_savings = IntMap::<usize, usize>::default();
     let mut i = 0;
     while let Some((parent, &cost)) = parents.get_index(i) {
         if cost >= max_cost {
@@ -113,10 +114,9 @@ fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
         if parent.pos == maze.end {
             // Cheated our way to the end!
             cheats.insert(parent.cheat.unwrap());
-            cheats_by_savings
+            *cheats_by_savings
                 .entry(cost_without_cheating - cost)
-                .or_default()
-                .push(parent.clone());
+                .or_default() += 1;
         } else {
             for next in successors(parent.clone(), maze, true) {
                 let cost = cost + 1;
@@ -126,8 +126,9 @@ fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
                         continue;
                     }
                 }
-                let best_cost = parents.entry(next).or_insert(cost);
-                *best_cost = (*best_cost).min(cost);
+                if let Entry::Vacant(entry) = parents.entry(next) {
+                    entry.insert(cost);
+                }
             }
         }
         i += 1;
