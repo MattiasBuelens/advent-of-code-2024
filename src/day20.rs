@@ -1,6 +1,7 @@
 use crate::util::{Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
 use indexmap::IndexMap;
+use nohash_hasher::IntMap;
 use pathfinding::prelude::*;
 use std::collections::HashSet;
 
@@ -43,46 +44,36 @@ fn parse(input: &str) -> Maze {
     }
 }
 
+impl Maze {
+    fn contains(&self, pos: &Vector2D) -> bool {
+        (0..self.width).contains(&pos.x()) && (0..self.height).contains(&pos.y())
+    }
+}
+
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 struct State {
     // Current position
     pos: Vector2D,
-    // Position where we started cheating
-    start: Option<Vector2D>,
-    // Position where we stopped cheating
-    end: Option<Vector2D>,
-    // Time remaining to cheat
-    time_remaining: usize,
+    // Position from where we cheated to where we ended up
+    cheat: Option<(Vector2D, Vector2D)>,
 }
 
-fn successors(state: State, maze: &Maze) -> impl Iterator<Item = State> + '_ {
+fn successors(state: State, maze: &Maze, can_cheat: bool) -> impl Iterator<Item = State> + '_ {
     Direction::all().into_iter().filter_map(move |dir| {
+        let state = state.clone();
         let mut next_state = state.clone();
         next_state.pos += dir.step();
         // Must always stay in bounds
-        if !(0..maze.width).contains(&next_state.pos.x()) {
+        if !maze.contains(&next_state.pos) {
             return None;
-        }
-        if !(0..maze.height).contains(&next_state.pos.y()) {
-            return None;
-        }
-        let mut cheating = state.start.is_some() && state.time_remaining > 0;
-        // If we're currently cheating, advance the timer
-        if cheating {
-            next_state.time_remaining = next_state.time_remaining.saturating_sub(1);
-            if next_state.time_remaining == 0 {
-                next_state.end = Some(next_state.pos);
-                cheating = false;
-            }
         }
         if maze.walls.contains(&next_state.pos) {
-            if state.start.is_none() && state.time_remaining > 0 {
-                // Start cheating
-                next_state.start = Some(state.pos);
-            } else if !cheating {
-                // Cannot cheat anymore
+            if !can_cheat || state.cheat.is_some() {
+                // Can no longer cheat
                 return None;
             }
+            // Cheat through the wall
+            next_state.cheat = Some((state.pos, next_state.pos));
         }
         Some(next_state)
     })
@@ -93,10 +84,9 @@ fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
     let (_, cost_without_cheating) = astar(
         &State {
             pos: maze.start,
-            time_remaining: 0,
             ..Default::default()
         },
-        |state| successors(state.clone(), maze).map(|state| (state, 1usize)),
+        |state| successors(state.clone(), maze, false).map(|state| (state, 1usize)),
         |state| (state.pos - maze.end).manhattan_distance() as usize,
         |state| state.pos == maze.end,
     )
@@ -108,34 +98,41 @@ fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
     parents.insert(
         State {
             pos: maze.start,
-            time_remaining: 1,
             ..Default::default()
         },
         0,
     );
     let mut cheats = HashSet::<(Vector2D, Vector2D)>::new();
+    let mut cheats_by_savings = IntMap::<usize, Vec<State>>::default();
     let mut i = 0;
     while let Some((parent, &cost)) = parents.get_index(i) {
-        let cost = cost + 1;
-        if cost > max_cost {
+        if cost >= max_cost {
             // Path too long.
             break;
         }
-        for next in successors(parent.clone(), maze) {
-            if next.pos == maze.end {
-                // Cheated our way to the end!
-                cheats.insert((next.start.unwrap(), next.end.unwrap()));
-            }
-            if let (Some(start), Some(end)) = (next.start, next.end) {
-                if cheats.contains(&(start, end)) {
-                    // Already seen this cheat before.
-                    continue;
+        if parent.pos == maze.end {
+            // Cheated our way to the end!
+            cheats.insert(parent.cheat.unwrap());
+            cheats_by_savings
+                .entry(cost_without_cheating - cost)
+                .or_default()
+                .push(parent.clone());
+        } else {
+            for next in successors(parent.clone(), maze, true) {
+                let cost = cost + 1;
+                if let Some(cheat) = next.cheat {
+                    if cheats.contains(&cheat) {
+                        // Already seen this cheat before.
+                        continue;
+                    }
                 }
+                let best_cost = parents.entry(next).or_insert(cost);
+                *best_cost = (*best_cost).min(cost);
             }
-            parents.entry(next).or_insert(cost);
         }
         i += 1;
     }
+    // dbg!(&cheats_by_savings);
     cheats.len()
 }
 
