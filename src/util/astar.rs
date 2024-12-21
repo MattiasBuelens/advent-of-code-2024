@@ -89,7 +89,7 @@ where
     FN: FnMut(&N) -> IN,
     IN: IntoIterator<Item = (N, C)>,
     FH: FnMut(&N) -> C,
-    FS: FnMut(&N) -> bool,
+    FS: FnMut(&N, C) -> bool,
 {
     let mut to_see = BinaryHeap::new();
     to_see.push(SmallestCostHolder {
@@ -102,7 +102,7 @@ where
     while let Some(SmallestCostHolder { cost, index, .. }) = to_see.pop() {
         let successors = {
             let (node, &(_, c)) = parents.get_index(index).unwrap(); // Cannot fail
-            if success(node) {
+            if success(node, cost) {
                 let path = reverse_path(&parents, |&(p, _)| p, index);
                 return Some((path, cost));
             }
@@ -174,6 +174,7 @@ pub fn astar_bag<N, C, FN, IN, FH, FS>(
     mut successors: FN,
     mut heuristic: FH,
     mut success: FS,
+    max_cost: Option<C>,
 ) -> Option<(AstarSolution<N>, C)>
 where
     N: Eq + Hash + Clone,
@@ -181,7 +182,7 @@ where
     FN: FnMut(&N) -> IN,
     IN: IntoIterator<Item = (N, C)>,
     FH: FnMut(&N) -> C,
-    FS: FnMut(&N) -> bool,
+    FS: FnMut(&N, C) -> bool,
 {
     let mut to_see = BinaryHeap::new();
     let mut min_cost = None;
@@ -194,20 +195,24 @@ where
     let mut parents: FxIndexMap<N, (HashSet<usize>, C)> = FxIndexMap::default();
     parents.insert(start.clone(), (HashSet::new(), Zero::zero()));
     while let Some(SmallestCostHolder {
-                       cost,
-                       index,
-                       estimated_cost,
-                       ..
-                   }) = to_see.pop()
+        cost,
+        index,
+        estimated_cost,
+        ..
+    }) = to_see.pop()
     {
-        if matches!(min_cost, Some(min_cost) if estimated_cost > min_cost) {
+        // if matches!(min_cost, Some(min_cost) if estimated_cost > min_cost) {
+        //     break;
+        // }
+        if matches!(max_cost, Some(max_cost) if estimated_cost > max_cost) {
             break;
         }
         let successors = {
             let (node, &(_, c)) = parents.get_index(index).unwrap(); // Cannot fail
-            if success(node) {
+            if success(node, cost) {
                 min_cost = Some(cost);
                 sinks.insert(index);
+                continue;
             }
             // We may have inserted a node several time into the binary heap if we found
             // a better way to access it. Ensure that we are currently dealing with the
@@ -298,9 +303,9 @@ where
     FN: FnMut(&N) -> IN,
     IN: IntoIterator<Item = (N, C)>,
     FH: FnMut(&N) -> C,
-    FS: FnMut(&N) -> bool,
+    FS: FnMut(&N, C) -> bool,
 {
-    astar_bag(start, successors, heuristic, success)
+    astar_bag(start, successors, heuristic, success, None)
         .map(|(solutions, cost)| (solutions.collect(), cost))
 }
 
@@ -417,7 +422,7 @@ where
             node
         })
     })
-        .collect::<Vec<&N>>();
+    .collect::<Vec<&N>>();
     // Collecting the going through the vector is needed to revert the path because the
     // unfold iterator is not double-ended due to its iterative nature.
     path.into_iter().rev().cloned().collect()

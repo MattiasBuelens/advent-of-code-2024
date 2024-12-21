@@ -1,7 +1,5 @@
-use crate::util::{Direction, Vector2D};
+use crate::util::{astar, astar_bag, Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
-use indexmap::IndexMap;
-use pathfinding::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
@@ -98,39 +96,35 @@ fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
         },
         |state| successors(state.clone(), maze).map(|state| (state, 1usize)),
         |state| (state.pos - maze.end).manhattan_distance() as usize,
-        |state| state.pos == maze.end,
+        |state, _cost| state.pos == maze.end,
     )
     .expect("no solution found without cheating");
     // Find paths that improve over the best path by cheating
-    // This is breadth-first search, but with a maximum path cost
     let max_cost = cost_without_cheating - min_saving;
-    let mut parents = IndexMap::<State, usize>::new();
-    parents.insert(
-        State {
+    let mut cheats = HashMap::<(Vector2D, Vector2D), usize>::default();
+    let (solution, _) = astar_bag(
+        &State {
             pos: maze.start,
             time_remaining: 1,
             ..Default::default()
         },
-        0,
-    );
-    let mut cheats = HashMap::<(Vector2D, Vector2D), usize>::default();
-    let mut i = 0;
-    while let Some((parent, &cost)) = parents.get_index(i) {
-        let cost = cost + 1;
-        if cost > max_cost {
-            break;
-        }
-        for next in successors(parent.clone(), maze) {
-            if next.pos == maze.end {
-                let prev_cost = cheats
-                    .entry((next.start.unwrap(), next.end.unwrap()))
-                    .or_default();
-                *prev_cost = (*prev_cost).min(cost);
+        |state| successors(state.clone(), maze).map(|state| (state, 1usize)),
+        |state| (state.pos - maze.end).manhattan_distance() as usize,
+        |state, cost| {
+            if state.pos == maze.end {
+                let cheat_cost = cheats
+                    .entry((state.start.unwrap(), state.end.unwrap()))
+                    .or_insert(usize::MAX);
+                *cheat_cost = (*cheat_cost).min(cost);
+                true
+            } else {
+                false
             }
-            parents.entry(next).or_insert(cost);
-        }
-        i += 1;
-    }
+        },
+        Some(max_cost),
+    )
+    .expect("no solutions found");
+    solution.for_each(|_| {});
     cheats.len()
 }
 
