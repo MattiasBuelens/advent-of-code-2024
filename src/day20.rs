@@ -1,7 +1,7 @@
 use crate::util::{Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
 use indexmap::IndexMap;
-use pathfinding::prelude::bfs;
+use pathfinding::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
@@ -90,17 +90,17 @@ fn successors(state: State, maze: &Maze) -> impl Iterator<Item = State> + '_ {
 
 fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
     // Find the best path without cheating
-    let path_without_cheating = bfs(
+    let (_, cost_without_cheating) = astar(
         &State {
             pos: maze.start,
             time_remaining: 0,
             ..Default::default()
         },
-        |state| successors(state.clone(), maze),
+        |state| successors(state.clone(), maze).map(|state| (state, 1usize)),
+        |state| (state.pos - maze.end).manhattan_distance() as usize,
         |state| state.pos == maze.end,
     )
     .expect("no solution found without cheating");
-    let cost_without_cheating = path_without_cheating.len() - 1;
     // Find paths that improve over the best path by cheating
     // This is breadth-first search, but with a maximum path cost
     let max_cost = cost_without_cheating - min_saving;
