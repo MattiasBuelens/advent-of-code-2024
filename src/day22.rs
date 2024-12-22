@@ -1,6 +1,6 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::Itertools;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[aoc_generator(day22)]
 fn parse(input: &str) -> Vec<u64> {
@@ -54,38 +54,37 @@ fn price_changes(secret: u64) -> impl Iterator<Item = (u64, Change)> {
     )
 }
 
-fn compute_total_bananas(change: &Change, all_changes: &[Vec<(u64, Change)>]) -> u64 {
-    let mut total = 0;
-    for monkey_changes in all_changes {
-        if let Some((price, _)) = monkey_changes.iter().find(|(_, c)| change == c) {
-            total += price;
-        }
-    }
-    total
-}
-
 #[aoc(day22, part2)]
 fn part2(input: &[u64]) -> u64 {
-    let all_changes = input
+    // Pre-compute the price for every possible change for every monkey
+    let all_prices_by_change = input
         .iter()
         .map(|&secret| price_changes(secret).take(2000 + 1).collect::<Vec<_>>())
+        .map(|changes| {
+            let mut price_by_change = HashMap::<Change, u64>::new();
+            for (price, change) in changes {
+                price_by_change.entry(change).or_insert(price);
+            }
+            price_by_change
+        })
         .collect::<Vec<_>>();
-    let mut most_bananas = 0;
-    let mut seen = HashSet::<&Change>::new();
-    for changes in &all_changes {
-        for (_, change) in changes {
-            if seen.contains(change) {
-                continue;
-            }
-            let total = compute_total_bananas(change, &all_changes);
-            seen.insert(change);
-            if total > most_bananas {
-                dbg!(total, change);
-                most_bananas = total;
-            }
-        }
-    }
-    most_bananas
+    // Check each possible change only once
+    let all_changes = all_prices_by_change
+        .iter()
+        .flat_map(|price_by_change| price_by_change.keys())
+        .collect::<HashSet<&Change>>();
+    // Find the best change
+    let most_bananas = all_changes
+        .into_iter()
+        .map(|change| {
+            // Compute the total bananas we'd get from all monkeys for this change
+            all_prices_by_change
+                .iter()
+                .filter_map(|price_by_change| price_by_change.get(change))
+                .sum()
+        })
+        .max();
+    most_bananas.unwrap()
 }
 
 #[cfg(test)]
