@@ -11,7 +11,7 @@ fn parse(input: &str) -> Vec<String> {
     input.lines().map(|line| line.to_string()).collect()
 }
 
-type ButtonCosts = HashMap<(char, char), String>;
+type ButtonCosts = HashMap<(char, char), usize>;
 
 struct Keypad {
     buttons: BiHashMap<char, Vector2D>,
@@ -49,7 +49,7 @@ impl Keypad {
         self.buttons
             .left_values()
             .cartesian_product(self.buttons.left_values())
-            .map(|(&from, &to)| ((from, to), to.to_string()))
+            .map(|(&from, &to)| ((from, to), 1usize))
             .collect()
     }
 
@@ -61,7 +61,7 @@ impl Keypad {
             .collect()
     }
 
-    fn get_path(&self, input: &ButtonCosts, from: char, to: char) -> String {
+    fn get_path(&self, input: &ButtonCosts, from: char, to: char) -> usize {
         let start = State {
             pos: *self.buttons.get_by_left(&from).unwrap(),
             pushed: false,
@@ -69,7 +69,7 @@ impl Keypad {
             button: 'A',
         };
         let goal = *self.buttons.get_by_left(&to).unwrap();
-        let (path, cost) = dijkstra(
+        let (_path, cost) = dijkstra(
             &start,
             |state| self.successors(state.clone(), goal, input),
             |state| {
@@ -78,14 +78,7 @@ impl Keypad {
             },
         )
         .expect("no path found");
-        let mut buttons = String::with_capacity(cost);
-        let mut prev_button = start.button;
-        for state in path.into_iter().skip(1) {
-            buttons.push_str(input.get(&(prev_button, state.button)).unwrap());
-            prev_button = state.button;
-        }
-        debug_assert_eq!(buttons.len(), cost);
-        buttons
+        cost
     }
 
     fn successors<'a>(
@@ -101,7 +94,7 @@ impl Keypad {
         } = state;
         if pos == goal {
             // Push the button!
-            let cost = input.get(&(button, 'A')).unwrap().len();
+            let cost = *input.get(&(button, 'A')).unwrap();
             return Either::Left(std::iter::once((
                 State {
                     pos,
@@ -125,7 +118,7 @@ impl Keypad {
                 Direction::S => 'v',
                 Direction::W => '<',
             };
-            let cost = input.get(&(prev_button, button)).unwrap().len();
+            let cost = *input.get(&(prev_button, button)).unwrap();
             Some((
                 State {
                     pos,
@@ -138,14 +131,14 @@ impl Keypad {
         Either::Right(moves)
     }
 
-    fn solve(code: &str, input: &ButtonCosts) -> String {
-        let mut buttons = String::new();
+    fn solve(code: &str, input: &ButtonCosts) -> usize {
+        let mut cost = 0;
         let mut prev_button = 'A';
         for c in code.chars() {
-            buttons.push_str(input.get(&(prev_button, c)).unwrap());
+            cost += input.get(&(prev_button, c)).unwrap();
             prev_button = c;
         }
-        buttons
+        cost
     }
 }
 
@@ -154,11 +147,11 @@ lazy_static! {
     static ref DIRECTIONAL: Keypad = Keypad::new(&[" ^A", "<v>"]);
 }
 
-#[aoc(day21, part1)]
-fn part1(codes: &[String]) -> usize {
-    let costs = DIRECTIONAL.default_costs();
-    let costs = DIRECTIONAL.calculate_costs(&costs);
-    let costs = DIRECTIONAL.calculate_costs(&costs);
+fn solve(codes: &[String], num_robots: usize) -> usize {
+    let mut costs = DIRECTIONAL.default_costs();
+    for _ in 0..num_robots {
+        costs = DIRECTIONAL.calculate_costs(&costs);
+    }
     let costs = NUMERIC.calculate_costs(&costs);
 
     codes
@@ -166,14 +159,19 @@ fn part1(codes: &[String]) -> usize {
         .map(|code| {
             let numeric = code.strip_suffix("A").unwrap().parse::<usize>().unwrap();
             let buttons = Keypad::solve(code, &costs);
-            numeric * buttons.len()
+            numeric * buttons
         })
         .sum()
 }
 
+#[aoc(day21, part1)]
+fn part1(codes: &[String]) -> usize {
+    solve(codes, 2)
+}
+
 #[aoc(day21, part2)]
 fn part2(codes: &[String]) -> usize {
-    todo!()
+    solve(codes, 25)
 }
 
 #[cfg(test)]
@@ -191,7 +189,7 @@ mod tests {
         let costs = NUMERIC.calculate_costs(&costs);
 
         assert_eq!(
-            Keypad::solve(code, &costs).len(),
+            Keypad::solve(code, &costs),
             "<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A".len()
         );
     }
@@ -203,6 +201,6 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        assert_eq!(part2(&parse(EXAMPLE)), 154115708116294);
     }
 }
