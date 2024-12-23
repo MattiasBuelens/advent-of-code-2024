@@ -58,16 +58,16 @@ fn successors(pos: Vector2D, maze: &Maze) -> Vec<Vector2D> {
 
 /// Returns all positions in range for cheating,
 /// i.e. a diamond pattern around `pos` with a maximum Manhattan distance of 2.
-fn cheat_range(pos: Vector2D) -> impl Iterator<Item = Vector2D> {
-    (-2i32..=2)
+fn cheat_range(pos: Vector2D, cheat_duration: i32) -> impl Iterator<Item = Vector2D> {
+    (-cheat_duration..=cheat_duration)
         .flat_map(move |dy| {
-            let max_dx = 2 - dy.abs();
+            let max_dx = cheat_duration - dy.abs();
             (-max_dx..=max_dx).map(move |dx| pos + Vector2D::new(dx, dy))
         })
         .filter(move |&x| x != pos)
 }
 
-fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
+fn find_cheats(maze: &Maze, cheat_duration: i32, min_saving: usize) -> usize {
     // Find the best path without cheating
     let path = bfs(
         &maze.start,
@@ -83,11 +83,10 @@ fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
     // Try to cheat from any point on the path to a point further along
     let mut cheats = HashSet::<(Vector2D, Vector2D)>::new();
     for (i, &pos) in path.iter().enumerate() {
-        for cheat_pos in cheat_range(pos) {
+        for cheat_pos in cheat_range(pos, cheat_duration) {
             if let Some(j) = path.iter().position(|&x| x == cheat_pos) {
-                // Cheating adds 2 picoseconds, but we skip directly
-                // to index j along the original path.
-                let saving = j.saturating_sub(i + 2);
+                let cheat_time = (cheat_pos - pos).manhattan_distance() as usize;
+                let saving = j.saturating_sub(i + cheat_time);
                 if saving >= min_saving {
                     cheats.insert((pos, cheat_pos));
                 }
@@ -99,12 +98,12 @@ fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
 
 #[aoc(day20, part1)]
 fn part1(maze: &Maze) -> usize {
-    find_cheats(maze, 100)
+    find_cheats(maze, 2, 100)
 }
 
 #[aoc(day20, part2)]
 fn part2(maze: &Maze) -> usize {
-    todo!()
+    find_cheats(maze, 20, 100)
 }
 
 #[cfg(test)]
@@ -116,7 +115,7 @@ mod tests {
     #[test]
     fn test_cheat_range() {
         assert_eq!(
-            cheat_range(Vector2D::new(0, 0)).collect::<Vec<_>>(),
+            cheat_range(Vector2D::new(0, 0), 2).collect::<Vec<_>>(),
             vec![
                 Vector2D::new(0, -2),
                 Vector2D::new(-1, -1),
@@ -136,11 +135,11 @@ mod tests {
 
     #[test]
     fn part1_example() {
-        assert_eq!(find_cheats(&parse(EXAMPLE), 1), 44);
+        assert_eq!(find_cheats(&parse(EXAMPLE), 2, 1), 44);
     }
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        assert_eq!(find_cheats(&parse(EXAMPLE), 20, 50), 285);
     }
 }
