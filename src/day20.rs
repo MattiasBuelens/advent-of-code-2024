@@ -1,7 +1,7 @@
 use crate::util::{Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 struct Maze {
@@ -80,11 +80,17 @@ fn find_cheats(maze: &Maze, cheat_duration: i32, min_saving: usize) -> usize {
         |&pos| pos == maze.end,
     )
     .expect("no solution found without cheating");
+    // Map position along the path to its path index
+    let path_index_by_pos = path
+        .iter()
+        .enumerate()
+        .map(|(i, &pos)| (pos, i))
+        .collect::<HashMap<_, _>>();
     // Try to cheat from any point on the path to a point further along
     let mut cheats = HashSet::<(Vector2D, Vector2D)>::new();
     for (i, &pos) in path.iter().enumerate() {
         for cheat_pos in cheat_range(pos, cheat_duration) {
-            if let Some(j) = path.iter().position(|&x| x == cheat_pos) {
+            if let Some(j) = path_index_by_pos.get(&cheat_pos) {
                 let cheat_time = (cheat_pos - pos).manhattan_distance() as usize;
                 let saving = j.saturating_sub(i + cheat_time);
                 if saving >= min_saving {
