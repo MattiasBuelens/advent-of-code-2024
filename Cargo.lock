@@ -10,7 +10,6 @@ dependencies = [
  "aoc-runner-derive",
  "approx",
  "bimap",
- "indexmap",
  "itertools",
  "lazy_static",
  "nohash-hasher",
