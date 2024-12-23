@@ -25,13 +25,13 @@ fn parse(input: &str) -> NetworkMap {
 }
 
 impl NetworkMap {
-    fn connected_computers(&self) -> HashSet<Vec<String>> {
+    fn connected_computers(&self) -> HashSet<Vec<&str>> {
         let mut components = HashSet::new();
         for (first, first_connections) in &self.connections {
             for second in first_connections {
-                for third in self.connections.get(second).unwrap().iter() {
-                    if third != first && first_connections.contains(third) {
-                        let mut component = vec![first.clone(), second.clone(), third.clone()];
+                for third in first_connections {
+                    if second != third && self.connections.get(second).unwrap().contains(third) {
+                        let mut component = vec![first.as_str(), second.as_str(), third.as_str()];
                         component.sort();
                         components.insert(component);
                     }
