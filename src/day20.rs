@@ -1,8 +1,5 @@
 use crate::util::{Direction, Vector2D};
 use aoc_runner_derive::{aoc, aoc_generator};
-use indexmap::map::Entry;
-use indexmap::IndexMap;
-use nohash_hasher::IntMap;
 use pathfinding::prelude::*;
 use std::collections::HashSet;
 
@@ -59,81 +56,78 @@ struct State {
     cheat: Option<(Vector2D, Vector2D)>,
 }
 
-fn successors(state: State, maze: &Maze, can_cheat: bool) -> impl Iterator<Item = State> + '_ {
-    Direction::all().into_iter().filter_map(move |dir| {
-        let state = state.clone();
-        let mut next_state = state.clone();
-        next_state.pos += dir.step();
-        // Must always stay in bounds
-        if !maze.contains(&next_state.pos) {
-            return None;
-        }
-        if maze.walls.contains(&next_state.pos) {
-            if !can_cheat || state.cheat.is_some() {
-                // Can no longer cheat
-                return None;
+fn successors(state: &State, maze: &Maze, can_cheat: bool) -> Vec<State> {
+    Direction::all()
+        .into_iter()
+        .flat_map(move |dir| {
+            let mut next_state = state.clone();
+            next_state.pos += dir.step();
+            // Must always stay in bounds
+            if !maze.contains(&next_state.pos) {
+                return vec![];
             }
-            // Cheat through the wall
-            next_state.cheat = Some((state.pos, next_state.pos));
-        }
-        Some(next_state)
-    })
+            if maze.walls.contains(&next_state.pos) {
+                if !can_cheat || state.cheat.is_some() {
+                    // Can no longer cheat
+                    return vec![];
+                }
+                // Cheat through the wall
+                return Direction::all()
+                    .into_iter()
+                    .filter_map(|second_dir| {
+                        if second_dir == dir.opposite() {
+                            // Don't backtrack
+                            return None;
+                        }
+                        let mut next_state = next_state.clone();
+                        next_state.pos += dir.step();
+                        // Must always stay in bounds
+                        if !maze.contains(&next_state.pos) {
+                            return None;
+                        }
+                        next_state.cheat = Some((state.pos, next_state.pos));
+                        Some(next_state)
+                    })
+                    .collect();
+            }
+            vec![next_state]
+        })
+        .collect()
 }
 
 fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
     // Find the best path without cheating
-    let (_, cost_without_cheating) = astar(
+    let path = bfs(
         &State {
             pos: maze.start,
             ..Default::default()
         },
-        |state| successors(state.clone(), maze, false).map(|state| (state, 1usize)),
-        |state| (state.pos - maze.end).manhattan_distance() as usize,
+        |state| {
+            let successors = successors(state, maze, false);
+            // There are no intersections (with 3 or more branches).
+            assert!(successors.len() <= 2);
+            successors
+        },
         |state| state.pos == maze.end,
     )
     .expect("no solution found without cheating");
-    // Find paths that improve over the best path by cheating
-    // This is breadth-first search, but with a maximum path cost
-    let max_cost = cost_without_cheating - min_saving;
-    let mut parents = IndexMap::<State, usize>::new();
-    parents.insert(
-        State {
-            pos: maze.start,
-            ..Default::default()
-        },
-        0,
-    );
+    // Try to cheat from any point on the path to a point further along
     let mut cheats = HashSet::<(Vector2D, Vector2D)>::new();
-    let mut cheats_by_savings = IntMap::<usize, usize>::default();
-    let mut i = 0;
-    while let Some((parent, &cost)) = parents.get_index(i) {
-        if cost >= max_cost {
-            // Path too long.
-            break;
-        }
-        if parent.pos == maze.end {
-            // Cheated our way to the end!
-            cheats.insert(parent.cheat.unwrap());
-            *cheats_by_savings
-                .entry(cost_without_cheating - cost)
-                .or_default() += 1;
-        } else {
-            for next in successors(parent.clone(), maze, true) {
-                let cost = cost + 1;
-                if let Some(cheat) = next.cheat {
-                    if cheats.contains(&cheat) {
-                        // Already seen this cheat before.
-                        continue;
+    for (i, state) in path.iter().enumerate() {
+        for next_state in successors(state, maze, true) {
+            if let Some(cheat) = next_state.cheat {
+                debug_assert_eq!(cheat.0, state.pos);
+                if let Some(j) = path.iter().position(|x| x.pos == cheat.1) {
+                    // Cheating adds 2 picoseconds, but we skip directly
+                    // to index j along the original path.
+                    let saving = j.saturating_sub(i + 2);
+                    if saving >= min_saving {
+                        cheats.insert(cheat);
                     }
-                }
-                if let Entry::Vacant(entry) = parents.entry(next) {
-                    entry.insert(cost);
                 }
             }
         }
-        i += 1;
     }
-    // dbg!(&cheats_by_savings);
     cheats.len()
 }
 
