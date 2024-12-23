@@ -17,10 +17,7 @@ fn parse(input: &str) -> NetworkMap {
             .entry(first.clone())
             .or_default()
             .insert(second.clone());
-        connections
-            .entry(second.clone())
-            .or_default()
-            .insert(first.clone());
+        connections.entry(second).or_default().insert(first);
     }
     NetworkMap { connections }
 }
