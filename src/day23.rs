@@ -1,5 +1,6 @@
 use aoc_runner_derive::{aoc, aoc_generator};
-use std::collections::{HashMap, HashSet};
+use itertools::Itertools;
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 struct NetworkMap {
     connections: HashMap<String, HashSet<String>>,
@@ -40,6 +41,33 @@ impl NetworkMap {
         }
         components
     }
+
+    fn max_clique(&self) -> BTreeSet<&str> {
+        let mut max_clique = BTreeSet::new();
+        for (first, first_connections) in &self.connections {
+            for second in first_connections {
+                // Start with two connected computers in the clique
+                let mut clique = BTreeSet::from([first.as_str(), second.as_str()]);
+                // Extend this clique with other computers that are also connected to the entire clique
+                for third in first_connections {
+                    if !clique.contains(third.as_str()) && self.in_clique(&clique, third) {
+                        clique.insert(third.as_str());
+                        if clique.len() > max_clique.len() {
+                            max_clique = clique.clone();
+                        }
+                    }
+                }
+            }
+        }
+        max_clique
+    }
+
+    fn in_clique(&self, clique: &BTreeSet<&str>, other: &str) -> bool {
+        let other_connections = self.connections.get(other).unwrap();
+        clique
+            .iter()
+            .all(|&existing| other_connections.contains(existing))
+    }
 }
 
 #[aoc(day23, part1)]
@@ -51,8 +79,9 @@ fn part1(map: &NetworkMap) -> usize {
 }
 
 #[aoc(day23, part2)]
-fn part2(map: &NetworkMap) -> usize {
-    todo!()
+fn part2(map: &NetworkMap) -> String {
+    // Already sorted alphabetically, because BTreeSet is ordered
+    map.max_clique().iter().join(",")
 }
 
 #[cfg(test)]
@@ -68,6 +97,6 @@ mod tests {
 
     #[test]
     fn part2_example() {
-        assert_eq!(part2(&parse(EXAMPLE)), 0);
+        assert_eq!(part2(&parse(EXAMPLE)), "co,de,ka,ta");
     }
 }
