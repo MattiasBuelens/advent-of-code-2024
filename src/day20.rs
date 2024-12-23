@@ -48,82 +48,48 @@ impl Maze {
     }
 }
 
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-struct State {
-    // Current position
-    pos: Vector2D,
-    // Position from where we cheated to where we ended up
-    cheat: Option<(Vector2D, Vector2D)>,
-}
-
-fn successors(state: &State, maze: &Maze, can_cheat: bool) -> Vec<State> {
+fn successors(pos: Vector2D, maze: &Maze) -> Vec<Vector2D> {
     Direction::all()
         .into_iter()
-        .flat_map(move |dir| {
-            let mut next_state = state.clone();
-            next_state.pos += dir.step();
-            // Must always stay in bounds
-            if !maze.contains(&next_state.pos) {
-                return vec![];
-            }
-            if maze.walls.contains(&next_state.pos) {
-                if !can_cheat || state.cheat.is_some() {
-                    // Can no longer cheat
-                    return vec![];
-                }
-                // Cheat through the wall
-                return Direction::all()
-                    .into_iter()
-                    .filter_map(|second_dir| {
-                        if second_dir == dir.opposite() {
-                            // Don't backtrack
-                            return None;
-                        }
-                        let mut next_state = next_state.clone();
-                        next_state.pos += dir.step();
-                        // Must always stay in bounds
-                        if !maze.contains(&next_state.pos) {
-                            return None;
-                        }
-                        next_state.cheat = Some((state.pos, next_state.pos));
-                        Some(next_state)
-                    })
-                    .collect();
-            }
-            vec![next_state]
-        })
+        .map(|dir| pos + dir.step())
+        .filter(|next_pos| maze.contains(next_pos) && !maze.walls.contains(next_pos))
         .collect()
+}
+
+/// Returns all positions in range for cheating,
+/// i.e. a diamond pattern around `pos` with a maximum Manhattan distance of 2.
+fn cheat_range(pos: Vector2D) -> impl Iterator<Item = Vector2D> {
+    (-2i32..=2)
+        .flat_map(move |dy| {
+            let max_dx = 2 - dy.abs();
+            (-max_dx..=max_dx).map(move |dx| pos + Vector2D::new(dx, dy))
+        })
+        .filter(move |&x| x != pos)
 }
 
 fn find_cheats(maze: &Maze, min_saving: usize) -> usize {
     // Find the best path without cheating
     let path = bfs(
-        &State {
-            pos: maze.start,
-            ..Default::default()
-        },
-        |state| {
-            let successors = successors(state, maze, false);
+        &maze.start,
+        |&pos| {
+            let successors = successors(pos, maze);
             // There are no intersections (with 3 or more branches).
             assert!(successors.len() <= 2);
             successors
         },
-        |state| state.pos == maze.end,
+        |&pos| pos == maze.end,
     )
     .expect("no solution found without cheating");
     // Try to cheat from any point on the path to a point further along
     let mut cheats = HashSet::<(Vector2D, Vector2D)>::new();
-    for (i, state) in path.iter().enumerate() {
-        for next_state in successors(state, maze, true) {
-            if let Some(cheat) = next_state.cheat {
-                debug_assert_eq!(cheat.0, state.pos);
-                if let Some(j) = path.iter().position(|x| x.pos == cheat.1) {
-                    // Cheating adds 2 picoseconds, but we skip directly
-                    // to index j along the original path.
-                    let saving = j.saturating_sub(i + 2);
-                    if saving >= min_saving {
-                        cheats.insert(cheat);
-                    }
+    for (i, &pos) in path.iter().enumerate() {
+        for cheat_pos in cheat_range(pos) {
+            if let Some(j) = path.iter().position(|&x| x == cheat_pos) {
+                // Cheating adds 2 picoseconds, but we skip directly
+                // to index j along the original path.
+                let saving = j.saturating_sub(i + 2);
+                if saving >= min_saving {
+                    cheats.insert((pos, cheat_pos));
                 }
             }
         }
@@ -146,6 +112,27 @@ mod tests {
     use super::*;
 
     const EXAMPLE: &str = include_str!("../examples/2024/day20.txt");
+
+    #[test]
+    fn test_cheat_range() {
+        assert_eq!(
+            cheat_range(Vector2D::new(0, 0)).collect::<Vec<_>>(),
+            vec![
+                Vector2D::new(0, -2),
+                Vector2D::new(-1, -1),
+                Vector2D::new(0, -1),
+                Vector2D::new(1, -1),
+                Vector2D::new(-2, 0),
+                Vector2D::new(-1, 0),
+                Vector2D::new(1, 0),
+                Vector2D::new(2, 0),
+                Vector2D::new(-1, 1),
+                Vector2D::new(0, 1),
+                Vector2D::new(1, 1),
+                Vector2D::new(0, 2)
+            ]
+        );
+    }
 
     #[test]
     fn part1_example() {
