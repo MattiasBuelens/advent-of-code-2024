@@ -228,8 +228,12 @@ impl Device {
         let expected_output = true;
         let expected_carry = false;
         dbg!(&output_name, &carry_name, &self.inputs);
-        let actual_output = *self.inputs.get(&output_name).unwrap();
-        let actual_carry = *self.inputs.get(&carry_name).unwrap();
+        let Some(&actual_output) = self.inputs.get(&output_name) else {
+            return false;
+        };
+        let Some(&actual_carry) = self.inputs.get(&carry_name) else {
+            return false;
+        };
         if expected_output != actual_output || expected_carry != actual_carry {
             println!("1 + 0 = 01 failed, output {output_name} = {actual_output}, carry {carry_name} = {actual_carry}");
             return false;
