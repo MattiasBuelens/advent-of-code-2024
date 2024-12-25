@@ -139,10 +139,6 @@ impl Device {
         Self::input_name('y', bit)
     }
 
-    fn z_name(bit: usize) -> String {
-        Self::input_name('z', bit)
-    }
-
     fn fix_adder(&mut self) -> Vec<String> {
         let length = self.input_length();
         let mut swaps = Vec::with_capacity(8);
@@ -430,7 +426,7 @@ flowchart LR"
                 Self::print_io(&gate.right);
                 println!("  {} --> gate_{i}", gate.right);
             }
-            if let Some(_) = self.gate_by_input_wire(&gate.output) {
+            if self.gate_by_input_wire(&gate.output).is_some() {
                 // Skip, connection will be printed by other gate
             } else {
                 Self::print_io(&gate.output);
