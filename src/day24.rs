@@ -207,20 +207,20 @@ impl Device {
         carry_out: &mut String,
     ) -> bool {
         // Figure out which wires hold the output and the carry-out
-        let (output_name, carry_name) = if bit == length - 1 {
+        let is_last_bit = bit == length - 1;
+        let (output_name, carry_name) = match (
+            self.find_outputs(used_wires).as_slice(),
+            self.find_carry_outs(used_wires).as_slice(),
+        ) {
+            // Must have exactly one output and one carry-out.
+            ([ref output_name], [ref carry_name]) if !is_last_bit => {
+                (output_name.clone(), carry_name.clone())
+            }
             // For the last bit, the carry-out is not a carry-in for the next bit.
-            match self.find_two_outputs(used_wires) {
-                Some(x) => x,
-                _ => return false,
+            ([ref output_name, ref carry_name], []) if is_last_bit => {
+                (output_name.clone(), carry_name.clone())
             }
-        } else {
-            match (
-                self.find_output(used_wires),
-                self.find_carry_out(used_wires),
-            ) {
-                (Some(output_name), Some(carry_name)) => (output_name, carry_name),
-                _ => return false,
-            }
+            _ => return false,
         };
         *carry_out = carry_name.clone();
         // Run some tests
@@ -312,44 +312,20 @@ impl Device {
         true
     }
 
-    fn find_output(&self, used_wires: &[String]) -> Option<String> {
-        let outputs = used_wires
+    fn find_outputs(&self, used_wires: &[String]) -> Vec<String> {
+        used_wires
             .iter()
             .filter(|input| self.is_output(input))
-            .collect::<Vec<_>>();
-        // Must have exactly one output
-        if outputs.len() == 1 {
-            Some(outputs[0].clone())
-        } else {
-            None
-        }
+            .cloned()
+            .collect::<Vec<_>>()
     }
 
-    fn find_carry_out(&self, used_wires: &[String]) -> Option<String> {
-        let carry_outs = used_wires
+    fn find_carry_outs(&self, used_wires: &[String]) -> Vec<String> {
+        used_wires
             .iter()
             .filter(|input| self.is_carry_out(input))
-            .collect::<Vec<_>>();
-        // Must have exactly one carry-out (except for the last bit)
-        if carry_outs.len() == 1 {
-            Some(carry_outs[0].clone())
-        } else {
-            None
-        }
-    }
-
-    fn find_two_outputs(&self, used_wires: &[String]) -> Option<(String, String)> {
-        let mut outputs = used_wires
-            .iter()
-            .filter(|input| self.is_output(input))
-            .collect::<Vec<_>>();
-        // Must have exactly two outputs
-        outputs.sort();
-        if outputs.len() == 2 {
-            Some((outputs[0].clone(), outputs[1].clone()))
-        } else {
-            None
-        }
+            .cloned()
+            .collect::<Vec<_>>()
     }
 
     fn is_output(&self, wire: &str) -> bool {
