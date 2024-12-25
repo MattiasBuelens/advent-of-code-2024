@@ -147,23 +147,26 @@ impl Device {
         let length = self.input_length();
         let mut swaps = Vec::with_capacity(8);
         let mut carry_in: Option<String> = None;
-        for bit in 0..length {
+        for bit in 0..(length - 1) {
+            // FIXME Remove -1
             let mut carry_out = String::new();
             // Figure out which wires are being used for this bit.
             // (Assume swaps don't need wires used by different bits.)
             let used_wires = self.wires_for_bit(bit, carry_in.as_ref());
             // Check if this bit works correctly
-            if !self.test_adder_for_bit(bit, &used_wires, carry_in.as_ref(), &mut carry_out) {
+            if !self.test_adder_for_bit(bit, length, &used_wires, carry_in.as_ref(), &mut carry_out)
+            {
                 println!("Need swap on bit {bit}");
                 let mut fixed = false;
                 for (left, right) in used_wires.iter().tuple_combinations() {
                     // Swap the output wires of two used gates.
-                    println!("Try swapping {left} and {right}");
+                    // println!("Try swapping {left} and {right}");
                     let mut device = self.clone();
                     device.swap_wires(left, right);
                     // Check if it works correctly now.
                     if device.test_adder_for_bit(
                         bit,
+                        length,
                         &used_wires,
                         carry_in.as_ref(),
                         &mut carry_out,
@@ -204,15 +207,24 @@ impl Device {
     fn test_adder_for_bit(
         &mut self,
         bit: usize,
+        length: usize,
         used_wires: &[String],
         carry_in: Option<&String>,
         carry_out: &mut String,
     ) -> bool {
         // Figure out which wires hold the output and the carry-out
-        let Some((output_name, carry_name)) = self.get_outputs(used_wires) else {
+        let Some(output_name) = self.find_output(used_wires) else {
             return false;
         };
-        *carry_out = carry_name.clone();
+        let carry_name = match self.find_carry_out(used_wires) {
+            Some(carry_name) => {
+                *carry_out = carry_name.clone();
+                carry_name
+            }
+            // Last bit does not have a carry-out
+            None if bit == length - 1 => String::new(),
+            None => return false,
+        };
         // Run some tests
         // Operands:  1 + 0
         // Carry in:  0
@@ -227,13 +239,19 @@ impl Device {
         self.solve();
         let expected_output = true;
         let expected_carry = false;
-        dbg!(&output_name, &carry_name, &self.inputs);
+        // dbg!(&output_name, &carry_name, &self.inputs);
         let Some(&actual_output) = self.inputs.get(&output_name) else {
             return false;
         };
-        let Some(&actual_carry) = self.inputs.get(&carry_name) else {
-            return false;
+        let actual_carry = if carry_name.is_empty() {
+            false
+        } else {
+            match self.inputs.get(&carry_name) {
+                Some(&actual_carry) => actual_carry,
+                None => return false,
+            }
         };
+
         if expected_output != actual_output || expected_carry != actual_carry {
             println!("1 + 0 = 01 failed, output {output_name} = {actual_output}, carry {carry_name} = {actual_carry}");
             return false;
@@ -252,7 +270,14 @@ impl Device {
         let expected_output = false;
         let expected_carry = true;
         let actual_output = *self.inputs.get(&output_name).unwrap();
-        let actual_carry = *self.inputs.get(&carry_name).unwrap();
+        let actual_carry = if carry_name.is_empty() {
+            false
+        } else {
+            match self.inputs.get(&carry_name) {
+                Some(&actual_carry) => actual_carry,
+                None => return false,
+            }
+        };
         if expected_output != actual_output || expected_carry != actual_carry {
             println!("1 + 1 = 10 failed, output {output_name} = {actual_output}, carry {carry_name} = {actual_carry}");
             return false;
@@ -270,7 +295,14 @@ impl Device {
             let expected_output = false;
             let expected_carry = true;
             let actual_output = *self.inputs.get(&output_name).unwrap();
-            let actual_carry = *self.inputs.get(&carry_name).unwrap();
+            let actual_carry = if carry_name.is_empty() {
+                false
+            } else {
+                match self.inputs.get(&carry_name) {
+                    Some(&actual_carry) => actual_carry,
+                    None => return false,
+                }
+            };
             if expected_output != actual_output || expected_carry != actual_carry {
                 println!("0 + 1 (+ 1) = 10 failed, output {output_name} = {actual_output}, carry {carry_name} = {actual_carry}");
                 return false;
@@ -287,7 +319,14 @@ impl Device {
             let expected_output = true;
             let expected_carry = true;
             let actual_output = *self.inputs.get(&output_name).unwrap();
-            let actual_carry = *self.inputs.get(&carry_name).unwrap();
+            let actual_carry = if carry_name.is_empty() {
+                false
+            } else {
+                match self.inputs.get(&carry_name) {
+                    Some(&actual_carry) => actual_carry,
+                    None => return false,
+                }
+            };
             if expected_output != actual_output || expected_carry != actual_carry {
                 println!("1 + 1 (+ 1) = 11 failed, output {output_name} = {actual_output}, carry {carry_name} = {actual_carry}");
                 return false;
@@ -296,20 +335,29 @@ impl Device {
         true
     }
 
-    fn get_outputs(&self, used_wires: &[String]) -> Option<(String, String)> {
+    fn find_output(&self, used_wires: &[String]) -> Option<String> {
         let outputs = used_wires
             .iter()
             .filter(|input| self.is_output(input))
             .collect::<Vec<_>>();
+        // Must have exactly one output
+        if outputs.len() == 1 {
+            Some(outputs[0].clone())
+        } else {
+            None
+        }
+    }
+
+    fn find_carry_out(&self, used_wires: &[String]) -> Option<String> {
         let carry_outs = used_wires
             .iter()
             .filter(|input| self.is_carry_out(input))
             .collect::<Vec<_>>();
-        dbg!(&outputs, &carry_outs, &self.inputs);
-        // Must have exactly one output and one carry-out
-        match (outputs.as_slice(), carry_outs.as_slice()) {
-            ([ref output], [ref carry]) => Some(((*output).clone(), (*carry).clone())),
-            _ => None,
+        // Must have exactly one carry-out (except for the last bit)
+        if carry_outs.len() == 1 {
+            Some(carry_outs[0].clone())
+        } else {
+            None
         }
     }
 
