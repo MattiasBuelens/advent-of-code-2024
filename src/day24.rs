@@ -2,6 +2,7 @@ use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::Itertools;
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 struct Device {
@@ -22,6 +23,16 @@ enum Operation {
     And,
     Or,
     Xor,
+}
+
+impl Display for Operation {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            Operation::And => write!(f, "AND"),
+            Operation::Or => write!(f, "OR"),
+            Operation::Xor => write!(f, "XOR"),
+        }
+    }
 }
 
 #[aoc_generator(day24)]
@@ -343,12 +354,61 @@ fn part2(device: &Device) -> String {
     swaps.iter().join(",")
 }
 
+#[allow(unused)]
+impl Device {
+    fn print_mermaid(&self) {
+        println!(
+            r"---
+config:
+  layout: elk
+---
+flowchart LR"
+        );
+        for (i, gate) in self.gates.iter().enumerate() {
+            println!("  gate_{i}[{}]", gate.op);
+            if let Some(left) = self.gate_by_output_wire(&gate.left) {
+                println!("  gate_{left} --> gate_{i}")
+            } else {
+                Self::print_io(&gate.left);
+                println!("  {} --> gate_{i}", gate.left);
+            }
+            if let Some(right) = self.gate_by_output_wire(&gate.right) {
+                println!("  gate_{right} --> gate_{i}")
+            } else {
+                Self::print_io(&gate.right);
+                println!("  {} --> gate_{i}", gate.right);
+            }
+            if let Some(_) = self.gate_by_input_wire(&gate.output) {
+                // Skip, connection will be printed by other gate
+            } else {
+                Self::print_io(&gate.output);
+                println!("  gate_{i} --> {}", gate.output);
+            }
+        }
+    }
+
+    fn gate_by_output_wire(&self, wire: &str) -> Option<usize> {
+        self.gates.iter().position(|gate| gate.output == wire)
+    }
+
+    fn gate_by_input_wire(&self, wire: &str) -> Option<usize> {
+        self.gates
+            .iter()
+            .position(|gate| gate.left == wire || gate.right == wire)
+    }
+
+    fn print_io(wire: &str) {
+        println!("  {wire}@{{ shape: \"circle\", label: \"{wire}\" }}");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     const EXAMPLE1: &str = include_str!("../examples/2024/day24-1.txt");
     const EXAMPLE2: &str = include_str!("../examples/2024/day24-2.txt");
+    const INPUT: &str = include_str!("../input/2024/day24.txt");
 
     #[test]
     fn part1_example1() {
@@ -358,5 +418,20 @@ mod tests {
     #[test]
     fn part1_example2() {
         assert_eq!(part1(&parse(EXAMPLE2)), 2024);
+    }
+
+    #[test]
+    fn part2_mermaid() {
+        parse(INPUT).print_mermaid();
+    }
+
+    #[test]
+    fn part2_example1_mermaid() {
+        parse(EXAMPLE1).print_mermaid();
+    }
+
+    #[test]
+    fn part2_example2_mermaid() {
+        parse(EXAMPLE2).print_mermaid();
     }
 }
