@@ -263,8 +263,8 @@ impl Device {
             self.inputs.insert(Self::y_name(bit), true);
             self.inputs.insert(carry_in.clone(), true);
             self.solve();
-            let expected_output = true;
-            let expected_carry = false;
+            let expected_output = false;
+            let expected_carry = true;
             let actual_output = *self.inputs.get(&output_name).unwrap();
             let actual_carry = *self.inputs.get(&carry_name).unwrap();
             if expected_output != actual_output || expected_carry != actual_carry {
